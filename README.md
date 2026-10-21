@@ -13,6 +13,8 @@ cauldrons.
   skills necklace, combat bracelet, Dig Site pendant, ring of slaying,
   ferocious ring, ring of wealth, Kethsi ring, Forinthry bracelet and Castle
   wars brace.
+- **Spring cleaner**: its stored charges, shortened to thousands (7,501
+  shows as "7K").
 
 - **Invention charge**: shown in the top-left corner of the worn equipment
   tab: combat time left, current charge and drain rate (for example
@@ -26,6 +28,10 @@ colour. What counts as low is set separately for potions and jewellery (1 to 5).
 
 - **Potion cauldrons**: when you enter your house, a panel lists each potion
   cauldron, its potion and the doses left.
+- **Potion supplies**: a restock list adding up the doses of each potion in
+  your backpack, beast of burden and bank (remembered from your last bank
+  visit), lowest first. Potions at or below your restock level are marked.
+  Open it from the settings page.
 
 ## Where numbers appear
 
