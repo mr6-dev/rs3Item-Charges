@@ -1,1 +1,1 @@
-Shows item charges and potion doses on icons in your backpack, equipment, bank, familiar and action bars, plus Invention charge time and your house's potion cauldrons.
+Shows item charges and potion doses on icons in your backpack, equipment, bank, familiar and action bars, plus Invention charge time, your house's potion cauldrons and a potion restock list beside your bank.

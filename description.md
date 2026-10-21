@@ -1,4 +1,4 @@
-Item Charges shows how many charges or doses your items have left, as a small number on each item's icon in your backpack, worn equipment, bank, beast of burden and action bars. It also shows how much Invention charge you have left, and lists what's in your player-owned house's potion cauldrons.
+Item Charges shows how many charges or doses your items have left, as a small number on each item's icon in your backpack, worn equipment, bank, beast of burden and action bars. It also shows how much Invention charge you have left, lists what's in your player-owned house's potion cauldrons, and keeps a restock list of your potions.
 
 ## What it shows
 
@@ -7,6 +7,9 @@ Every drinkable item with doses gets a number, including potions added to the ga
 
 **Charged jewellery**
 Games necklace, amulet of glory, ring of duelling, skills necklace, combat bracelet, Dig Site pendant, ring of slaying, ferocious ring, ring of wealth, Kethsi ring, Forinthry bracelet and Castle wars brace.
+
+**Spring cleaner**
+Every tier of the Spring cleaner shows its stored charges, shortened to thousands so it fits on the icon (7,501 shows as "7K").
 
 Items that are running low show their number in a separate "low charge" colour. You choose what counts as low, separately for potions and jewellery (1 to 5 doses or charges).
 
@@ -17,7 +20,7 @@ Items that are running low show their number in a separate "low charge" colour. 
 - **Beast of burden**: in your familiar's tab, the bank's familiar panel and the familiar storage window.
 - **Action bars**: potions and jewellery you've put on an action bar show the same number as in your backpack.
 
-Numbers move with their items straight away when you drag them to a new slot.
+Numbers move with their items straight away when you drag them to a new slot. While the bank is open, numbers that the bank window would cover are hidden so they don't show through it.
 
 **Invention charge**
 In the top-left corner of the worn equipment tab:
@@ -31,6 +34,9 @@ These match the numbers in the game's own Invention charge tooltip, so your perk
 **Potion cauldrons**
 When you enter your player-owned house, a small panel lists each potion cauldron you've built, the potion in it and the doses left (for example "Elder overload salve: 15 doses"). It updates as you drink, and you can close it or turn it off.
 
+**Potion supplies**
+When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank.
+
 ## Settings
 
 Open the settings with the cog icon next to Item Charges in the Plugin Hub's Manage tab. Changes apply straight away and are saved for next time.
@@ -43,10 +49,11 @@ Open the settings with the cog icon next to Item Charges in the Plugin Hub's Man
 - **Invention text size**: Normal, Small or XS.
 - **Invention text colour** and **Invention colour under 30 minutes**.
 - **Potion cauldron panel**: show it when you enter your house, or turn it off. "Show cauldron panel now" opens it anywhere.
+- **Potion supplies panel**: show it beside your bank, or turn it off. Set the restock level (0 to 500 doses). "Show potion supplies" opens the list anywhere.
 
 ## Limitations
 
-Only items that show their charges in their name are supported. Items that keep their charges somewhere else, such as the ring of recoil or the Botanist's amulet, don't show a number.
+Only items that show their charges in their name, or whose charges the game makes available to plugins (such as the Spring cleaner), are supported. Items that keep their charges on the individual item, such as the ring of recoil, the Botanist's amulet or the "Item Charge" percentage on degrading gear, don't show a number.
 
 ## Credits
 
@@ -66,8 +73,8 @@ This plugin does not request any permissions.
 
 ## Data Protection (case 1)
 
-This plugin uses the following information: the names and right-click options of items in your backpack, worn equipment, bank and beast of burden, which items are shown on your action bars, the on-screen positions of those interfaces, your Invention charge and drain rate, the contents of your potion cauldrons, and the scenery that loads when you change area (to recognise your house).
+This plugin uses the following information: the names and right-click options of items in your backpack, worn equipment, bank and beast of burden, which items are shown on your action bars, the on-screen positions of those interfaces, your Invention charge and drain rate, your Spring cleaner's stored charges, the contents of your potion cauldrons, and the scenery that loads when you change area (to recognise your house).
 
 This information is not transmitted outside of the plugin under any circumstances.
 
-Game information is not stored by the plugin between sessions, although plugin settings are stored between sessions.
+Plugin settings are stored between sessions. The only game information stored between sessions is the total doses of each potion in your bank (for the potion supplies list), which is kept on your computer by the game's plugin storage.
