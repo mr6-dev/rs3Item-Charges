@@ -35,7 +35,7 @@ These match the numbers in the game's own Invention charge tooltip, so your perk
 When you enter your player-owned house, a small panel lists each potion cauldron you've built by number, the potion in it and the doses left (for example "3. Elder overload salve: 15 doses"). It updates as you drink or fill a cauldron, remembers where you last moved it, and you can close it or turn it off. Each cauldron in your house also shows its number above it, so you can tell which is which. The plugin learns each cauldron's number the first time you drink from or fill it; until then it shows "?".
 
 **Potion supplies**
-When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank.
+When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked in the restock colour. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank.
 
 ## Settings
 
@@ -50,7 +50,7 @@ Open the settings with the cog icon next to Item Charges in the Plugin Hub's Man
 - **Invention text colour** and **Invention colour under 30 minutes**.
 - **Potion cauldron panel**: show it when you enter your house, or turn it off. "Show cauldron panel now" opens it anywhere.
 - **Cauldron refill level and colour**: cauldrons at or below this many doses (default 20) are marked "(refill)" in the panel, and their line and number use the refill colour. The numbers over cauldrons that don't need a refill have their own colour too.
-- **Potion supplies panel**: show it beside your bank, or turn it off. Set the restock level (0 to 500 doses). "Show potion supplies" opens the list anywhere.
+- **Potion supplies panel**: show it beside your bank, or turn it off. Set the restock level (0 to 500 doses) and the restock colour. "Show potion supplies" opens the list anywhere.
 
 ## Limitations
 

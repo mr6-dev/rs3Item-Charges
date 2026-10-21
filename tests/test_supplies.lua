@@ -123,6 +123,12 @@ view.sliders[4].onChange(nil, 10)
 check("restock level saved", saved.supplies_restock_at, "10")
 check("restock at 10", lines(),
       "Prayer potion: 3 doses  (restock) | Saradomin brew flask: 12 doses | Super restore: 46 doses")
+local function rowColour(i)
+    local c = win().rows[i].colour
+    return string.format("%.2f,%.2f,%.2f", c.r, c.g, c.b)
+end
+check("restock line in restock colour", rowColour(1), "1.00,0.25,0.25")
+check("other lines back to the default white", rowColour(2) .. " " .. rowColour(3), "1.00,1.00,1.00 1.00,1.00,1.00")
 
 -- Close the bank: its saved totals are still used
 bankOpen = false

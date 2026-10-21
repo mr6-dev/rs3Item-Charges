@@ -122,6 +122,7 @@ local DEFAULT_COLOURS = {
     invention_low  = { r = 255, g = 64,  b = 64 },
     cauldron       = { r = 255, g = 255, b = 0 },   -- numbers over cauldrons
     cauldron_low   = { r = 255, g = 64,  b = 64 },
+    restock        = { r = 255, g = 64,  b = 64 },
 }
 
 local function isColour(v)
@@ -919,11 +920,13 @@ function ListWindow:build(lineCount)
         onClose = function() self.open = false end,
     })
     self.open = wasOpen
-    self.rows, self.defaultColour, self.offset = {}, nil, nil
+    -- PrettyUI's own text colour, so a coloured line can be put back. White
+    -- if it can't be read.
+    self.rows, self.defaultColour, self.offset = {}, Vector4.new(1, 1, 1, 1), nil
     for i = 1, lineCount do
         self.rows[i] = self.window:AddText("")
     end
-    pcall(function() self.defaultColour = self.rows[1].colour end)
+    pcall(function() self.defaultColour = self.rows[1].colour or self.defaultColour end)
 end
 
 -- colours is optional: a colour per line, or nil for PrettyUI's own colour.
@@ -1367,13 +1370,15 @@ local function supplyLines()
         return a.name < b.name
     end)
 
-    local lines = {}
+    -- Potions needing a restock get the restock colour.
+    local lines, lineColours = {}, {}
     local restockCount = 0
     for _, potion in ipairs(list) do
         local restock = ""
         if potion.doses <= restockAt then
             restock = "  (restock)"
             restockCount = restockCount + 1
+            lineColours[#lines + 1] = toVector4(colours.restock)
         end
         lines[#lines + 1] = string.format("%s: %d dose%s%s", potion.name, potion.doses,
             potion.doses == 1 and "" or "s", restock)
@@ -1381,7 +1386,7 @@ local function supplyLines()
     if #lines == 0 then
         lines[1] = "No potions found. Open your bank once to include it."
     end
-    return lines, restockCount
+    return lines, lineColours, restockCount
 end
 
 -- x and y are optional; the window is rebuilt if it should open elsewhere.
@@ -1391,7 +1396,7 @@ local function showSuppliesWindow(x, y)
         suppliesPanel:destroy()
         suppliesPanel.x, suppliesPanel.y = x, y
     end
-    suppliesPanel:show((supplyLines()))
+    suppliesPanel:show(supplyLines())
 end
 
 -- The summary beside the bank: how many potions need restocking, and a
@@ -1401,7 +1406,7 @@ local summaryText = nil
 local SUMMARY_W, SUMMARY_H = 260, 120
 
 local function summaryLine()
-    local _, restockCount = supplyLines()
+    local _, _, restockCount = supplyLines()
     if restockCount == 0 then return "Nothing to restock." end
     return string.format("%d potion%s to restock.", restockCount, restockCount == 1 and "" or "s")
 end
@@ -1435,7 +1440,7 @@ end
 local function onSuppliesChanged()
     pcall(function()
         saveBankIfOpen()
-        if suppliesPanel.open then suppliesPanel:setLines((supplyLines())) end
+        if suppliesPanel.open then suppliesPanel:setLines(supplyLines()) end
         updateSummary()
     end)
 end
@@ -1596,6 +1601,7 @@ function restore.supplies()
     saveSetting("supplies_panel", suppliesMode)
     restockAt = 50
     saveSetting("supplies_restock_at", restockAt)
+    restore.colours({ "restock" })
 end
 
 -- The page is rebuilt so its controls show the restored values. That's done
@@ -1734,6 +1740,7 @@ local function buildSettingsPage(parent)
         saveSetting("supplies_restock_at", v)
         onSuppliesChanged()
     end)
+    add.colour("restock", "Restock colour", onSuppliesChanged)
     add.button("Show potion supplies", showSuppliesWindow)
     restore.addButton("Restore supplies defaults", restore.supplies)
 

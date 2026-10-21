@@ -33,7 +33,7 @@ colour. What counts as low is set separately for potions and jewellery (1 to 5).
   it shows ?). The panel remembers where you last moved it.
 - **Potion supplies**: a restock list adding up the doses of each potion in
   your backpack, beast of burden and bank (remembered from your last bank
-  visit), lowest first. Potions at or below your restock level are marked.
+  visit), lowest first. Potions at or below your restock level are marked in the restock colour.
   When you open your bank, a small summary beside it says how many potions
   need restocking, with a button for the full list. It can also be opened
   from the settings page.
