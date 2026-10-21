@@ -32,7 +32,7 @@ In the top-left corner of the worn equipment tab:
 These match the numbers in the game's own Invention charge tooltip, so your perks and research are already included. The lines change colour when under 30 minutes is left, and they hide when you aren't wearing augmented gear. They have their own colours, separate from the item numbers.
 
 **Potion cauldrons**
-When you enter your player-owned house, a small panel lists each potion cauldron you've built by number, the potion in it and the doses left (for example "3. Elder overload salve: 15 doses"). It updates as you drink or fill a cauldron, remembers where you last moved it, and you can close it or turn it off. Each cauldron in your house also shows its potion's icon above it (or its number, if you prefer), so you can tell which is which. The plugin learns each cauldron's number the first time you drink from or fill it; until then it shows "?".
+When you enter your player-owned house, a small panel lists each potion cauldron you've built by number, the potion in it and the doses left (for example "3. Elder overload salve: 15 doses"). It updates as you drink or fill a cauldron, remembers where you last moved it, and you can close it or turn it off. Each cauldron in your house also shows its potion's icon above it (or its number, if you prefer), so you can tell which is which. The icons hide while you're outside the cauldron's building, so they don't show through walls. New cauldrons are numbered as you build them, and moved cauldrons keep their number. Cauldrons you already had when you install the plugin show "?" until you drink from or fill each one once.
 
 **Potion supplies**
 When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked in the restock colour. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank.
@@ -50,7 +50,9 @@ Open the settings with the cog icon next to Item Charges in the Plugin Hub's Man
 - **Invention text colour** and **Invention colour under 30 minutes**.
 - **Potion cauldron panel**: show it when you enter your house, or turn it off. "Show cauldron panel now" opens it anywhere.
 - **Cauldron refill level and colour**: cauldrons at or below this many doses (default 20) are marked "(refill)" in the panel, and their line and number use the refill colour. The numbers over cauldrons that don't need a refill have their own colour too.
+- **Over each cauldron**: the potion's icon, or the cauldron's number.
 - **Potion supplies panel**: show it beside your bank, or turn it off. Set the restock level (0 to 500 doses) and the restock colour. "Show potion supplies" opens the list anywhere.
+- **Restore defaults**: each section has a button that puts its settings back to how they started.
 
 ## Limitations
 
@@ -74,8 +76,8 @@ This plugin does not request any permissions.
 
 ## Data Protection (case 1)
 
-This plugin uses the following information: the names and right-click options of items in your backpack, worn equipment, bank and beast of burden, which items are shown on your action bars, the on-screen positions of those interfaces, your Invention charge and drain rate, your Spring cleaner's stored charges, the contents of your potion cauldrons, where the cauldrons stand in your house and your own position (to number them), and the scenery that loads when you change area (to recognise your house).
+This plugin uses the following information: the names and right-click options of items in your backpack, worn equipment, bank and beast of burden, which items are shown on your action bars, the on-screen positions of those interfaces, your Invention charge and drain rate, your Spring cleaner's stored charges, the contents of your potion cauldrons, where the cauldrons stand in your house and your own position (to number them), whether the roof above a cauldron is showing (to hide its icon behind walls), and the scenery that loads when you change area (to recognise your house).
 
 This information is not transmitted outside of the plugin under any circumstances.
 
-Plugin settings are stored between sessions. The only game information stored between sessions is the total doses of each potion in your bank (for the potion supplies list), which is kept on your computer by the game's plugin storage.
+Plugin settings are stored between sessions. The only game information stored between sessions is the total doses of each potion in your bank (for the potion supplies list), which cauldron number belongs to which spot in your house, and where you last moved the cauldron panel. These are kept on your computer by the game's plugin storage.
