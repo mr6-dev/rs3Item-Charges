@@ -27,7 +27,10 @@ Items that are running low show their number in a separate "low charge"
 colour. What counts as low is set separately for potions and jewellery (1 to 5).
 
 - **Potion cauldrons**: when you enter your house, a panel lists each potion
-  cauldron, its potion and the doses left.
+  cauldron by number, its potion and the doses left, updating as you drink
+  or fill them. Each cauldron in the house shows its number above it. The
+  plugin learns which is which the first time you use each one (until then
+  it shows ?). The panel remembers where you last moved it.
 - **Potion supplies**: a restock list adding up the doses of each potion in
   your backpack, beast of burden and bank (remembered from your last bank
   visit), lowest first. Potions at or below your restock level are marked.
