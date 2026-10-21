@@ -382,6 +382,21 @@ handlers.ServerLogic()
 check("icons hidden in number mode", iconAt(22 * 50), "none")
 check("number back", labelAt(22 * 50), "4")
 
+-- Walls: a roof piece one level up over the middle cauldron. While the roof
+-- is showing (player outside), its label hides; once the game removes the
+-- roof (player inside), it shows again. The other cauldrons have no roof.
+local roof = { coordGrid = { level = 1, x = 10022, z = 3607 }, isRoofRemoved = false }
+LocList.ByDistance = function(c) if c.localX == 22 then return { roof } end return {} end
+handlers.ServerLogic()
+handlers.Logic()
+check("hidden while its roof shows", labelAt(22 * 50), "none")
+check("roofless cauldron still shown", labelAt(21 * 50), "3")
+roof.isRoofRemoved = true
+handlers.ServerLogic()
+handlers.Logic()
+check("shown once inside", labelAt(22 * 50), "4")
+LocList.ByDistance = nil
+
 -- Reloading the plugin destroys the window
 PluginShutdown()
 check("destroyed on shutdown", win().destroyed, "true")

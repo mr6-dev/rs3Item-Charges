@@ -1327,13 +1327,30 @@ local function learnCauldron(number)
     saveSetting("cauldron_map", cauldronMap)
 end
 
+-- Plugin overlays always draw on top of the world, so a label would show
+-- through walls. Instead: when a cauldron has roof scenery above it and that
+-- roof is still showing, the player is outside its building, so the label
+-- is hidden. (The game removes a building's roof while you're inside it.)
+-- Cauldrons with no roof above them are always shown.
+local function roofShowingOver(loc)
+    local c = loc.coordGrid
+    local roofs, removed = 0, 0
+    for _, above in ipairs(LocList.ByDistance(c, 1, false)) do
+        if above.coordGrid.level > c.level then
+            roofs = roofs + 1
+            if above.isRoofRemoved then removed = removed + 1 end
+        end
+    end
+    return roofs > 0 and removed == 0
+end
+
 -- The icon or the number (whichever is shown) is centred on the spot above
 -- the cauldron.
 local function placeCauldronLabels()
     for key, label in pairs(cauldronLabels) do
         local loc = cauldronLocs[key]
         local pos = nil
-        if loc ~= nil then
+        if loc ~= nil and not label.behindWall then
             pcall(function() pos = ScreenConvert.CoordGridToScreen(loc.coordGrid, LABEL.HEIGHT) end)
         end
         if pos == nil then
@@ -1446,6 +1463,8 @@ local function cauldronLabelTick()
             item = potionItems[(raw >> 1) & 0xFFF]
         end
         pcall(setLabelIcon, label, item)
+        local okRoof, behind = pcall(roofShowingOver, cauldronLocs[key])
+        label.behindWall = okRoof and behind
         local text = "?"
         if number ~= nil then
             text = (label.showIcon and label.icon ~= nil) and "" or tostring(number)
