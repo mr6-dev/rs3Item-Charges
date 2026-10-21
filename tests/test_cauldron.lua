@@ -13,6 +13,7 @@ local function comp(extra)
 end
 local pluginLayer = comp({ visibleGlobal = true })
 local texts = {}   -- every text the plugin creates
+local sprites = {} -- every icon the plugin creates
 Vector4 = { new = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end }
 ui = {
     Interfaces = { GetComponent = function(_, name)
@@ -20,6 +21,12 @@ ui = {
         return comp()
     end },
     Text = { new = function() local t = comp(); texts[#texts + 1] = t; return t end },
+    Sprite = { new = function()
+        local s = comp()
+        function s:SetAssociatedObject(item) self.item = item end
+        sprites[#sprites + 1] = s
+        return s
+    end },
     AlignMode = { CENTRE = 0 },
 }
 id = { Component = setmetatable({}, { __index = function(_, k) return k end }), Font = {} }
@@ -63,10 +70,15 @@ for n = 1, 5 do var.VarPlayer["CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" ..
 -- Fake HERBLORE_POTION table (ID 378). Rows 19280-19330, with one row from
 -- another table at 19300 to check the walk steps over gaps.
 local NAME_PARAM = { id = 2524, configName = "POTION_GENERIC_NAME" }
+local DOSE4_PARAM = { id = 588, configName = "POTIONDOSES_4" }
 local column3Reads = 0
 local rows = {}
 local function addRow(rowID, tableID, potionID, name)
-    local struct = { GetParamValue = function(_, p) if p == NAME_PARAM then return name end end }
+    -- Each potion's 4-dose item is its potion ID + 50000
+    local struct = { GetParamValue = function(_, p)
+        if p == NAME_PARAM then return name end
+        if p == DOSE4_PARAM then return { id = potionID + 50000 } end
+    end }
     rows[rowID] = {
         id = rowID, ownerDBTable = { id = tableID },
         GetColumnValues = function(_, c)
@@ -86,7 +98,7 @@ config.DBRow = setmetatable({ FromID = function(i) return rows[i] end }, {
         if name == "HERBLORE_POTION_WILDERNESS_AGGRESSION_POTION" then return rows[19286] end
     end,
 })
-config.Param = { POTION_GENERIC_NAME = NAME_PARAM }
+config.Param = { POTION_GENERIC_NAME = NAME_PARAM, POTIONDOSES_4 = DOSE4_PARAM }
 
 -- Fake PrettyUI window and settings page
 local windows = {}
@@ -307,6 +319,29 @@ local function labelColourAt(x)
 end
 check("empty cauldron's number in refill colour", labelColourAt(21 * 50), "1.00,0.25,0.25")
 check("full cauldron's number in normal colour", labelColourAt(22 * 50), "1.00,1.00,0.00")
+-- Potion icons: cauldron 4 (106 doses of potion 182) shows item 50182 centred
+-- over it, with its number moved under the icon; cauldron 3 is empty, so it
+-- has no icon and its number stays on the spot
+local function iconAt(x)
+    for _, s in ipairs(sprites) do
+        if s.posX == x - 18 and not s.hidden then return tostring(s.item) end
+    end
+    return "none"
+end
+check("icon over the salve cauldron", iconAt(22 * 50), "50182")
+check("no icon over the empty cauldron", iconAt(21 * 50), "none")
+check("number under the icon", (function()
+    for _, t in ipairs(texts) do
+        if t.posX == 22 * 50 - 20 and not t.hidden and t.isShadowed ~= nil then return t.posY end
+    end
+end)(), "316")
+
+-- "Number only" in the settings hides the icons on the next tick
+handlers.SettingsLayerReady({ component = { width = 640, height = 340 } })
+prettyui.lastView.radios.icon.onChange(nil, "number")
+check("label mode saved", saved.cauldron_labels, "number")
+handlers.ServerLogic()
+check("icons hidden in number-only mode", iconAt(22 * 50), "none")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()

@@ -1009,6 +1009,7 @@ local SEED_POTION_ROW_ID = 19286
 local ROW_GAP_LIMIT = 50   -- stop walking after this many rows from other tables
 
 local potionNames = nil    -- potion ID -> name, built on first use
+local potionItems = {}     -- potion ID -> item ID of its highest dose, for its icon
 -- Wide enough for "1. Elder overload salve: 107 doses  (refill)". Opens where
 -- it was last dragged to, even after a logout.
 local cauldronPanel = ListWindow.new("Potion cauldrons", 400,
@@ -1021,6 +1022,12 @@ local lastSlotValues = {}      -- cauldron number -> raw variable at the last ti
 local houseTicks = 0           -- game ticks since entering the house
 local inLargeInstance = false
 local houseWallsSeen = 0
+
+-- A label over a cauldron: its number (outlined text) and maybe an icon.
+local function hideCauldronLabel(label)
+    hideOutlinedText(label)
+    if label.icon ~= nil then label.icon.hidden = true end
+end
 
 local function readCauldronVar(n)
     return readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
@@ -1037,14 +1044,19 @@ local function readCauldrons()
     return list
 end
 
+-- The struct also holds each dose's item (params POTIONDOSES_4 down to _1;
+-- some potions only have a 1-dose item), used to draw the potion's icon.
+local POTION_DOSE_PARAMS = { "POTIONDOSES_4", "POTIONDOSES_3", "POTIONDOSES_2", "POTIONDOSES_1" }
+
+-- Returns potion ID -> name, and potion ID -> item ID.
 local function buildPotionNames()
-    local names = {}
+    local names, items = {}, {}
     local seed = nil
     pcall(function() seed = config.DBRow[SEED_POTION_ROW] end)
     if seed == nil then
         pcall(function() seed = config.DBRow.FromID(SEED_POTION_ROW_ID) end)
     end
-    if seed == nil then return names end
+    if seed == nil then return names, items end
     local tableID = seed.ownerDBTable.id
     local nameParam = config.Param.POTION_GENERIC_NAME
 
@@ -1057,6 +1069,13 @@ local function buildPotionNames()
             local potionID = row:GetColumnValues(1)[1]
             local struct = row:GetColumnValues(2)[1]
             names[potionID] = struct:GetParamValue(nameParam)
+            for _, paramName in ipairs(POTION_DOSE_PARAMS) do
+                local okItem, item = pcall(function() return struct:GetParamValue(config.Param[paramName]).id end)
+                if okItem and item ~= nil and item > 0 then
+                    items[potionID] = item
+                    break
+                end
+            end
         end)
         return true
     end
@@ -1068,13 +1087,19 @@ local function buildPotionNames()
             rowID = rowID + step
         end
     end
-    return names
+    return names, items
+end
+
+local function loadPotions()
+    if potionNames == nil then
+        potionNames, potionItems = buildPotionNames()
+    end
 end
 
 -- Numbered by the game's cauldron number, which the labels over the cauldrons
 -- in the house also show. Lines needing a refill get the refill colour.
 local function cauldronLines()
-    potionNames = potionNames or buildPotionNames()
+    loadPotions()
     local lines, lineColours = {}, {}
     for _, c in ipairs(readCauldrons()) do
         local refill = c.doses <= refillAt and "  (refill)" or ""
@@ -1140,7 +1165,7 @@ local function changedArea(isLargeInstance)
     houseTicks = 0
     lastSlotValues = {}
     for _, label in pairs(cauldronLabels) do
-        pcall(hideOutlinedText, label)
+        pcall(hideCauldronLabel, label)
     end
 end
 Event.WorldCreated.Subscribe("itemChargesCauldronWorld", function()
@@ -1179,13 +1204,17 @@ end)
 -- learns it: when one cauldron's variable changes (drinking, filling or
 -- building), the cauldron the player is standing next to is that number.
 -- Matches are saved by the cauldron's spot in the house, so they're kept
--- between visits. Unmatched cauldrons show "?".
+-- between visits. Unmatched cauldrons show "?". By default the potion's own
+-- item icon floats above the number (drawn by the game, not a custom image).
 
+local LABEL_MODES = { icon = true, number = true }
 local LABEL = {
     RANGE_SQ = 5,              -- squared tiles: next to it, including diagonally
     HEIGHT = 700,              -- fine units above the tile (a tile is 512)
     W = 40, H = 24,
+    ICON_W = 36, ICON_H = 32,  -- the size of an inventory icon
     LEARN_AFTER_TICKS = 5,     -- ignore the variables arriving as the house loads
+    mode = loadSetting("cauldron_labels", function(v) return LABEL_MODES[v] == true end, "icon"),
 }
 
 local function isMap(v) return type(v) == "table" end
@@ -1243,6 +1272,8 @@ local function learnCauldron(number)
     saveSetting("cauldron_map", cauldronMap)
 end
 
+-- The icon (when shown) is centred on the spot above the cauldron, with the
+-- number just under it; without an icon the number sits on that spot.
 local function placeCauldronLabels()
     for key, label in pairs(cauldronLabels) do
         local loc = cauldronLocs[key]
@@ -1251,11 +1282,32 @@ local function placeCauldronLabels()
             pcall(function() pos = ScreenConvert.CoordGridToScreen(loc.coordGrid, LABEL.HEIGHT) end)
         end
         if pos == nil then
-            hideOutlinedText(label)
+            hideCauldronLabel(label)
         else
-            placeOutlinedText(label, math.floor(pos.x - LABEL.W / 2), math.floor(pos.y - LABEL.H / 2))
+            local x, y = math.floor(pos.x), math.floor(pos.y)
+            if label.showIcon and label.icon ~= nil then
+                label.icon:SetPos(x - LABEL.ICON_W // 2, y - LABEL.ICON_H // 2)
+                label.icon.hidden = false
+                y = y + (LABEL.ICON_H + LABEL.H) // 2
+            elseif label.icon ~= nil then
+                label.icon.hidden = true
+            end
+            placeOutlinedText(label, x - LABEL.W // 2, y - LABEL.H // 2)
         end
     end
+end
+
+-- Shows a potion's icon on a label, creating the icon the first time.
+local function setLabelIcon(label, item)
+    label.showIcon = item ~= nil
+    if item == nil or label.item == item then return end
+    if label.icon == nil then
+        label.icon = ui.Sprite.new(parentLayer)
+        label.icon:SetSize(LABEL.ICON_W, LABEL.ICON_H)
+        label.icon.clickthrough = true
+    end
+    label.icon:SetAssociatedObject(item)
+    label.item = item
 end
 
 local function cauldronLabelTick()
@@ -1270,17 +1322,26 @@ local function cauldronLabelTick()
         lastSlotValues[n] = raw
     end
 
+    loadPotions()
     for key in pairs(cauldronLocs) do
         if cauldronLabels[key] == nil then
             cauldronLabels[key] = newOutlinedText(parentLayer, LABEL.W, LABEL.H)
         end
+        local label = cauldronLabels[key]
         local number = cauldronMap[key]
         local colour = colours.cauldron
         local raw = number and lastSlotValues[number]
-        if raw ~= nil and (raw >> 13) & 0xFFF <= refillAt then
+        local doses = raw and (raw >> 13) & 0xFFF
+        if doses ~= nil and doses <= refillAt then
             colour = colours.cauldron_low
         end
-        setOutlinedContent(cauldronLabels[key], number and tostring(number) or "?", toVector4(colour))
+        setOutlinedContent(label, number and tostring(number) or "?", toVector4(colour))
+        -- An icon only for a matched cauldron with a potion in it.
+        local item = nil
+        if LABEL.mode == "icon" and doses ~= nil and doses > 0 then
+            item = potionItems[(raw >> 1) & 0xFFF]
+        end
+        pcall(setLabelIcon, label, item)
     end
     placeCauldronLabels()
 end
@@ -1593,6 +1654,8 @@ function restore.cauldrons()
     saveSetting("cauldron_panel", cauldronMode)
     refillAt = 20
     saveSetting("cauldron_refill_at", refillAt)
+    LABEL.mode = "icon"
+    saveSetting("cauldron_labels", LABEL.mode)
     restore.colours({ "cauldron", "cauldron_low" })
 end
 
@@ -1710,6 +1773,14 @@ local function buildSettingsPage(parent)
         saveSetting("cauldron_panel", cauldronMode)
     end)
     add.button("Show cauldron panel now", showCauldronWindow)
+    add.radio("Over each cauldron:", {
+        { text = "Potion icon and number", value = "icon" },
+        { text = "Number only", value = "number" },
+    }, LABEL.mode, function(value)
+        if not LABEL_MODES[value] then return end
+        LABEL.mode = value
+        saveSetting("cauldron_labels", value)
+    end)
     add.slider(function()
         return string.format("Mark cauldrons for refill at %d doses or fewer", refillAt)
     end, 0, REFILL_MAX, REFILL_STEP, refillAt, function(v)
@@ -1772,7 +1843,7 @@ function PluginShutdown()
     end
     cauldronPanel:destroy()
     for _, label in pairs(cauldronLabels) do
-        pcall(hideOutlinedText, label)
+        pcall(hideCauldronLabel, label)
     end
     suppliesPanel:destroy()
     closeSummary()
