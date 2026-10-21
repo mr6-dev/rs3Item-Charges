@@ -513,11 +513,17 @@ local function findBankComponents()
     bankBackpack = findComponentByName("BANK__INVENTORY_SLOTS")
 end
 
+-- A closed bank's components still report visibleGlobal = true, but with a
+-- size of 0 at (0, 0) (seen with a probe), so size is checked too.
+local function bankPartShown(comp)
+    return comp ~= nil and comp.visibleGlobal == true and comp.width > 0 and comp.height > 0
+end
+
 local function bankRect()
     local items, backpack = bankItems, bankBackpack
-    if items == nil or not items.visibleGlobal then return nil end
+    if not bankPartShown(items) then return nil end
     local right = items.xyGlobal.x + items.width
-    if backpack ~= nil and backpack.visibleGlobal then
+    if bankPartShown(backpack) then
         right = math.max(right, backpack.xyGlobal.x + backpack.width)
     end
     return {
@@ -1265,7 +1271,7 @@ Event.InventoryRemoved.Subscribe("itemChargesSuppliesRemoved", onSuppliesChanged
 
 -- Opening the bank shows the summary to the right of the bank window, and
 -- closing the bank closes it (and the list). The bank counts as open while
--- its item area is on screen; checked once a game tick. The bank window's
+-- its item area is on screen (bankPartShown); checked once a game tick. The bank window's
 -- right edge is just past its backpack panel, and its top is about 95 pixels
 -- above the item area (measured from a screenshot).
 local BANK_OPEN_COMPONENT = "BANK__BANK_ITEMS_CONTAINER"
@@ -1276,7 +1282,7 @@ local bankWasOpen = false
 local function besideBank(items)
     local backpack = findComponentByName(BANK_BACKPACK_COMPONENT)
     local right = items.xyGlobal.x + items.width
-    if backpack ~= nil and backpack.visibleGlobal then
+    if bankPartShown(backpack) then
         right = backpack.xyGlobal.x + backpack.width
     end
     return right + BANK_RIGHT_GAP, math.max(0, items.xyGlobal.y - BANK_TOP_OFFSET)
@@ -1285,7 +1291,7 @@ end
 Event.ServerLogic.Subscribe("itemChargesSuppliesBank", function()
     pcall(function()
         local items = findComponentByName(BANK_OPEN_COMPONENT)
-        local bankOpen = items ~= nil and items.visibleGlobal == true
+        local bankOpen = bankPartShown(items)
         if suppliesMode == "bank" then
             if bankOpen and not bankWasOpen then
                 showSummary(besideBank(items))

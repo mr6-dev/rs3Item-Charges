@@ -153,9 +153,11 @@ check("list stays closed", list.shown, "false")
 summary.button()
 check("list opens under the summary", win().shown and win().opts.x .. "," .. win().opts.y, "540,335")
 
--- Closing the bank closes both
+-- Closing the bank closes both. As in-game, a closed bank's item area still
+-- says visible, but with a size of 0 at (0, 0).
 local listFromBank = win()
-bankContainer.visibleGlobal = false
+bankContainer.xyGlobal = { x = 0, y = 0 }
+bankContainer.width, bankContainer.height = 0, 0
 handlers.ServerLogic()
 check("closes with the bank", tostring(summary.destroyed) .. "," .. tostring(listFromBank.shown), "true,false")
 
