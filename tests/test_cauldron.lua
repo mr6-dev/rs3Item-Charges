@@ -165,14 +165,14 @@ check("closes on leaving", shown(), "false")
 handlers.LocAdded({ config = { id = 138359 } })
 check("reopens next visit", shown(), "true")
 cauldronVars[1].value = (182 << 1) | 1 | (14 << 13)
-handlers.VarTransmit({ var = cauldronVars[1] })
+handlers.ServerLogic()
 check("updates live", lines(), "1. Elder Overload Salve: 14 doses  (refill) | 2. Aggression Potion: 120 doses")
 
 -- An empty built cauldron, a single dose, and an unknown potion ID
 cauldronVars[3].value = 1                               -- built, empty
 cauldronVars[4].value = (182 << 1) | 1 | (1 << 13)      -- 1 dose
 cauldronVars[5].value = (4000 << 1) | 1 | (50 << 13)    -- ID not in the table
-handlers.VarTransmit({ var = cauldronVars[3] })
+handlers.ServerLogic()
 check("empty, singular, unknown", lines(),
       "1. Elder Overload Salve: 14 doses  (refill) | 2. Aggression Potion: 120 doses | 3. Empty  (refill) | "
       .. "4. Elder Overload Salve: 1 dose  (refill) | 5. Unknown potion (4000): 50 doses")
@@ -182,7 +182,7 @@ check("rebuilt taller for 5 lines", win().opts.height, "192")
 -- Closed by the player, then a cauldron changes: it must not reopen
 win():Close()
 cauldronVars[3].value = 0
-handlers.VarTransmit({ var = cauldronVars[3] })
+handlers.ServerLogic()
 check("stays closed after a change", shown(), "false")
 
 -- Empty house: a 256x256 instance with the plot's invisible boundary walls
@@ -219,7 +219,7 @@ check("off: stays closed", shown(), "false")
 view.buttons["Show cauldron panel now"]()
 check("show now button", shown(), "true")
 
--- A cauldron built while the panel is open, with no VarTransmit: the next
+-- A cauldron built while the panel is open: the next
 -- game tick picks it up, and the taller rebuilt window stays open
 local before = #windows
 cauldronVars[3].value = 1

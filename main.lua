@@ -141,11 +141,8 @@ local showOnActionBars = loadSetting("show_on_action_bars", isBoolean, true)
 local CAULDRON_MODES = { house = true, off = true }
 local cauldronMode = loadSetting("cauldron_panel", function(v) return CAULDRON_MODES[v] == true end, "house")
 
--- Where the cauldron window was last dragged to, so it reopens there after a
--- logout.
+-- A saved window position.
 local function isCoord(v) return type(v) == "number" and v >= 0 end
-local cauldronX = loadSetting("cauldron_x", isCoord, 40)
-local cauldronY = loadSetting("cauldron_y", isCoord, 200)
 
 -- At or below these, numbers use the low colour. Separate for potions (doses)
 -- and jewellery (charges).
@@ -898,6 +895,91 @@ refresh()
 
 
 -------------------------------------------------------------------------------
+-- List windows (built with PrettyUI)
+-------------------------------------------------------------------------------
+-- A window showing one line of text per row, used by the cauldron and potion
+-- supplies panels. It's sized to its lines (up to maxLines, then it scrolls)
+-- and rebuilt when the number of lines changes.
+
+local ListWindow = { PADDING = 52, LINE_HEIGHT = 28 }
+ListWindow.__index = ListWindow
+
+function ListWindow.new(title, width, x, y, maxLines)
+    return setmetatable({ title = title, width = width, x = x, y = y,
+        maxLines = maxLines or math.huge, rows = {}, open = false }, ListWindow)
+end
+
+function ListWindow:build(lineCount)
+    -- Destroying the old window may run its onClose, so keep the open state.
+    local wasOpen = self.open
+    self:destroy()
+    self.window = prettyui.Window.new(parentLayer, {
+        title = self.title, x = self.x, y = self.y, width = self.width,
+        height = ListWindow.PADDING + math.min(lineCount, self.maxLines) * ListWindow.LINE_HEIGHT,
+        onClose = function() self.open = false end,
+    })
+    self.open = wasOpen
+    self.rows, self.defaultColour, self.offset = {}, nil, nil
+    for i = 1, lineCount do
+        self.rows[i] = self.window:AddText("")
+    end
+    pcall(function() self.defaultColour = self.rows[1].colour end)
+end
+
+-- colours is optional: a colour per line, or nil for PrettyUI's own colour.
+function ListWindow:setLines(lines, colours)
+    if self.window == nil then return end
+    if #lines ~= #self.rows then
+        self:build(#lines)
+        if self.open then self.window:Show() end
+    end
+    for i, line in ipairs(lines) do
+        self.rows[i].content = line
+        local colour = colours and colours[i] or self.defaultColour
+        if colour ~= nil then self.rows[i].colour = colour end
+    end
+end
+
+function ListWindow:show(lines, colours)
+    if parentLayer == nil or prettyui == nil then return end
+    if self.window == nil then self:build(#lines) end
+    self.open = true
+    self:setLines(lines, colours)
+    self.window:Show()
+end
+
+function ListWindow:close()
+    if self.window ~= nil and self.open then
+        pcall(function() self.window:Close() end)
+    end
+    self.open = false
+end
+
+function ListWindow:destroy()
+    if self.window ~= nil then
+        pcall(function() self.window:Destroy() end)
+    end
+    self.window = nil
+end
+
+-- PrettyUI can't report where a window has been dragged, so the position is
+-- worked out from the window's viewport component: its screen position now,
+-- minus how far it sat from the window's x, y when it was first shown.
+-- Returns true when the window has moved.
+function ListWindow:trackPosition()
+    local p = self.window.viewport.xyGlobal
+    if self.offset == nil then
+        self.offset = { x = p.x - self.x, y = p.y - self.y }
+        return false
+    end
+    local x = math.max(0, math.floor(p.x - self.offset.x))
+    local y = math.max(0, math.floor(p.y - self.offset.y))
+    if x == self.x and y == self.y then return false end
+    self.x, self.y = x, y
+    return true
+end
+
+-------------------------------------------------------------------------------
 -- Potion cauldrons (player-owned house)
 -------------------------------------------------------------------------------
 -- Each of the 5 cauldrons is one player variable packing three values:
@@ -910,11 +992,6 @@ refresh()
 -- read; other columns hold value types plugins can't receive.
 
 local CAULDRON_COUNT = 5
--- Wide enough for "1. Elder overload salve: 107 doses  (refill)", and tall
--- enough that five lines fit without the last one being clipped.
-local CAULDRON_WINDOW_WIDTH = 400
-local CAULDRON_WINDOW_PADDING = 52
-local CAULDRON_LINE_HEIGHT = 28
 local CAULDRON_LOC_IDS = { [138359] = true, [138360] = true, [138361] = true }
 
 -- Entering the house: the house is a 256x256 instance (RegionCreated), and its
@@ -929,12 +1006,11 @@ local SEED_POTION_ROW_ID = 19286
 local ROW_GAP_LIMIT = 50   -- stop walking after this many rows from other tables
 
 local potionNames = nil    -- potion ID -> name, built on first use
-local cauldronWindow = nil
-local cauldronRows = {}
-local cauldronRowColour = nil  -- PrettyUI's default text colour, to restore
-local cauldronWindowOpen = false
+-- Wide enough for "1. Elder overload salve: 107 doses  (refill)". Opens where
+-- it was last dragged to, even after a logout.
+local cauldronPanel = ListWindow.new("Potion cauldrons", 400,
+    loadSetting("cauldron_x", isCoord, 40), loadSetting("cauldron_y", isCoord, 200))
 local cauldronShownThisVisit = false
-local cauldronOffset = nil     -- viewport screen position minus the window's x, y
 local lastCauldronValues = nil -- raw cauldron variables at the last update
 local inHouse = false
 local cauldronLabels = {}      -- spot -> outlined number over a cauldron
@@ -943,10 +1019,14 @@ local houseTicks = 0           -- game ticks since entering the house
 local inLargeInstance = false
 local houseWallsSeen = 0
 
+local function readCauldronVar(n)
+    return readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
+end
+
 local function readCauldrons()
     local list = {}
     for n = 1, CAULDRON_COUNT do
-        local raw = readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
+        local raw = readCauldronVar(n)
         if raw ~= nil and raw & 1 == 1 then
             list[#list + 1] = { number = n, potionID = (raw >> 1) & 0xFFF, doses = (raw >> 13) & 0xFFF }
         end
@@ -988,15 +1068,11 @@ local function buildPotionNames()
     return names
 end
 
+-- Numbered by the game's cauldron number, which the labels over the cauldrons
+-- in the house also show. Lines needing a refill get the refill colour.
 local function cauldronLines()
-    if potionNames == nil then
-        potionNames = buildPotionNames()
-    end
-    local lines = {}
-    -- Numbered by the game's cauldron number, which the labels over the
-    -- cauldrons in the house also show. lows[i] is true when line i needs a
-    -- refill.
-    local lows = {}
+    potionNames = potionNames or buildPotionNames()
+    local lines, lineColours = {}, {}
     for _, c in ipairs(readCauldrons()) do
         local refill = c.doses <= refillAt and "  (refill)" or ""
         if c.doses == 0 then
@@ -1006,100 +1082,30 @@ local function cauldronLines()
             lines[#lines + 1] = string.format("%d. %s: %d dose%s%s", c.number, name, c.doses,
                 c.doses == 1 and "" or "s", refill)
         end
-        lows[#lines] = refill ~= ""
+        if refill ~= "" then lineColours[#lines] = toVector4(colours.cauldron_low) end
     end
     if #lines == 0 then
         lines[1] = "No potion cauldrons built."
     end
-    return lines, lows
-end
-
--- The window is sized to its lines, so it's rebuilt if the number of lines
--- changes (for example, a cauldron is built while it's open).
-local function buildCauldronWindow(lineCount)
-    if cauldronWindow ~= nil then
-        pcall(function() cauldronWindow:Destroy() end)
-    end
-    cauldronWindow = prettyui.Window.new(parentLayer, {
-        title = "Potion cauldrons",
-        x = cauldronX, y = cauldronY, width = CAULDRON_WINDOW_WIDTH,
-        height = CAULDRON_WINDOW_PADDING + lineCount * CAULDRON_LINE_HEIGHT,
-        onClose = function() cauldronWindowOpen = false end,
-    })
-    cauldronOffset = nil
-    cauldronRows = {}
-    cauldronRowColour = nil
-    for i = 1, lineCount do
-        cauldronRows[i] = cauldronWindow:AddText("")
-    end
-    pcall(function() cauldronRowColour = cauldronRows[1].colour end)
+    return lines, lineColours
 end
 
 local function cauldronValuesKey()
     local values = {}
     for n = 1, CAULDRON_COUNT do
-        values[n] = tostring(readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n))
+        values[n] = tostring(readCauldronVar(n))
     end
     return table.concat(values, ",")
 end
 
 local function updateCauldronWindow()
-    if cauldronWindow == nil then return end
     lastCauldronValues = cauldronValuesKey()
-    local lines, lows = cauldronLines()
-    if #lines ~= #cauldronRows then
-        -- Destroying the old window may run its onClose, so remember whether
-        -- it was open first.
-        local wasOpen = cauldronWindowOpen
-        buildCauldronWindow(#lines)
-        cauldronWindowOpen = wasOpen
-        if wasOpen then cauldronWindow:Show() end
-    end
-    for i, line in ipairs(lines) do
-        cauldronRows[i].content = line
-        -- Lines needing a refill use the refill colour; the rest keep
-        -- PrettyUI's own text colour.
-        if lows[i] then
-            cauldronRows[i].colour = toVector4(colours.cauldron_low)
-        elseif cauldronRowColour ~= nil then
-            cauldronRows[i].colour = cauldronRowColour
-        end
-    end
-end
-
--- PrettyUI can't report where a window has been dragged, so the position is
--- worked out from the window's viewport component: its screen position now,
--- minus how far it sat from the window's x, y when it was first shown.
-local function trackCauldronPosition()
-    local p = cauldronWindow.viewport.xyGlobal
-    if cauldronOffset == nil then
-        cauldronOffset = { x = p.x - cauldronX, y = p.y - cauldronY }
-        return
-    end
-    local x = math.max(0, math.floor(p.x - cauldronOffset.x))
-    local y = math.max(0, math.floor(p.y - cauldronOffset.y))
-    if x ~= cauldronX or y ~= cauldronY then
-        cauldronX, cauldronY = x, y
-        saveSetting("cauldron_x", x)
-        saveSetting("cauldron_y", y)
-    end
+    cauldronPanel:setLines(cauldronLines())
 end
 
 local function showCauldronWindow()
-    if parentLayer == nil or prettyui == nil then return end
-    if cauldronWindow == nil then
-        buildCauldronWindow(#cauldronLines())
-    end
-    cauldronWindowOpen = true
-    updateCauldronWindow()
-    cauldronWindow:Show()
-end
-
-local function closeCauldronWindow()
-    if cauldronWindow ~= nil and cauldronWindowOpen then
-        pcall(function() cauldronWindow:Close() end)
-    end
-    cauldronWindowOpen = false
+    lastCauldronValues = cauldronValuesKey()
+    cauldronPanel:show(cauldronLines())
 end
 
 local function enteredHouse()
@@ -1126,7 +1132,7 @@ local function changedArea(isLargeInstance)
     inLargeInstance = isLargeInstance
     houseWallsSeen = 0
     cauldronShownThisVisit = false
-    closeCauldronWindow()
+    cauldronPanel:close()
     inHouse = false
     houseTicks = 0
     lastSlotValues = {}
@@ -1143,24 +1149,18 @@ Event.RegionCreated.Subscribe("itemChargesCauldronRegion", function(e)
     end)
 end)
 
-Event.VarTransmit.Subscribe("itemChargesCauldronVars", function(e)
-    if cauldronWindow == nil then return end
+-- Every game tick while the window is open: save its position if it was
+-- dragged, and update it if a cauldron changed. Checking every tick also
+-- catches changes that arrive without a VarTransmit event, such as a newly
+-- built cauldron.
+Event.ServerLogic.Subscribe("itemChargesCauldronTick", function()
+    if cauldronPanel.window == nil or not cauldronPanel.open then return end
     pcall(function()
-        for n = 1, CAULDRON_COUNT do
-            if e.var == var.VarPlayer["CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n] then
-                updateCauldronWindow()
-                return
-            end
+        if cauldronPanel:trackPosition() then
+            saveSetting("cauldron_x", cauldronPanel.x)
+            saveSetting("cauldron_y", cauldronPanel.y)
         end
     end)
-end)
-
--- Every game tick while the window is open: save its position if it was
--- dragged, and catch cauldron changes that arrived without a VarTransmit
--- (a newly built cauldron didn't show until the house was re-entered).
-Event.ServerLogic.Subscribe("itemChargesCauldronTick", function()
-    if cauldronWindow == nil or not cauldronWindowOpen then return end
-    pcall(trackCauldronPosition)
     pcall(function()
         if cauldronValuesKey() ~= lastCauldronValues then
             updateCauldronWindow()
@@ -1260,7 +1260,7 @@ local function cauldronLabelTick()
     cauldronLocs = findCauldronLocs()
 
     for n = 1, CAULDRON_COUNT do
-        local raw = readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
+        local raw = readCauldronVar(n)
         if houseTicks > LABEL.LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n] then
             pcall(learnCauldron, n)
         end
@@ -1303,14 +1303,12 @@ end)
 -- "Super restore (2)" add together, but flasks are counted separately.
 
 local SUPPLY_LIVE_INVENTORIES = { "INV", "LORE_BOB" }
--- The window grows to fit up to this many lines, then scrolls.
-local SUPPLIES_MAX_VISIBLE_LINES = 15
 
 local savedBankDoses = loadSetting("supplies_bank_doses",
     function(v) return type(v) == "table" end, {})
-local suppliesWindow = nil
-local supplyRows = {}
-local suppliesWindowOpen = false
+-- Grows to fit up to 15 lines, then scrolls. Opens on the left of the screen
+-- from the settings page, or under the summary beside the bank.
+local suppliesPanel = ListWindow.new("Potion supplies", 440, 40, 200, 15)
 
 -- Adds each potion's doses in one inventory to totals (a stack of 10
 -- "Super restore (4)" adds 40). Returns how many filled slots it saw, so an
@@ -1386,59 +1384,14 @@ local function supplyLines()
     return lines, restockCount
 end
 
--- Where the list window opens: from the settings page, the left edge of the
--- screen; from the bank, under the summary beside the bank.
-local suppliesPos = { x = 40, y = 200 }
-
--- Same approach as the cauldron window: sized to its lines, rebuilt when the
--- number of lines changes. PrettyUI windows have a scroll bar, so long lists
--- are capped at a sensible height and scrolled.
-local function buildSuppliesWindow(lineCount)
-    if suppliesWindow ~= nil then
-        pcall(function() suppliesWindow:Destroy() end)
-    end
-    suppliesWindow = prettyui.Window.new(parentLayer, {
-        title = "Potion supplies",
-        x = suppliesPos.x, y = suppliesPos.y, width = 440,
-        height = 44 + math.min(lineCount, SUPPLIES_MAX_VISIBLE_LINES) * 26,
-        onClose = function() suppliesWindowOpen = false end,
-    })
-    supplyRows = {}
-    for i = 1, lineCount do
-        supplyRows[i] = suppliesWindow:AddText("")
-    end
-end
-
-local function updateSuppliesWindow()
-    if suppliesWindow == nil or not suppliesWindowOpen then return end
-    local lines = supplyLines()
-    if #lines ~= #supplyRows then
-        buildSuppliesWindow(#lines)
-        suppliesWindow:Show()
-    end
-    for i, line in ipairs(lines) do
-        supplyRows[i].content = line
-    end
-end
-
 -- x and y are optional; the window is rebuilt if it should open elsewhere.
 local function showSuppliesWindow(x, y)
-    if parentLayer == nil or prettyui == nil then return end
     x, y = x or 40, y or 200
-    if suppliesWindow == nil or x ~= suppliesPos.x or y ~= suppliesPos.y then
-        suppliesPos = { x = x, y = y }
-        buildSuppliesWindow(#supplyLines())
+    if x ~= suppliesPanel.x or y ~= suppliesPanel.y then
+        suppliesPanel:destroy()
+        suppliesPanel.x, suppliesPanel.y = x, y
     end
-    suppliesWindowOpen = true
-    updateSuppliesWindow()
-    suppliesWindow:Show()
-end
-
-local function closeSuppliesWindow()
-    if suppliesWindow ~= nil and suppliesWindowOpen then
-        pcall(function() suppliesWindow:Close() end)
-    end
-    suppliesWindowOpen = false
+    suppliesPanel:show((supplyLines()))
 end
 
 -- The summary beside the bank: how many potions need restocking, and a
@@ -1482,7 +1435,7 @@ end
 local function onSuppliesChanged()
     pcall(function()
         saveBankIfOpen()
-        updateSuppliesWindow()
+        if suppliesPanel.open then suppliesPanel:setLines((supplyLines())) end
         updateSummary()
     end)
 end
@@ -1518,7 +1471,7 @@ Event.ServerLogic.Subscribe("itemChargesSuppliesBank", function()
                 showSummary(besideBank(items))
             elseif bankWasOpen and not bankOpen then
                 closeSummary()
-                closeSuppliesWindow()
+                suppliesPanel:close()
             end
         end
         bankWasOpen = bankOpen
@@ -1531,56 +1484,70 @@ end)
 
 local settingsView = nil
 
-local ITEM_COLOUR_SETTINGS = {
-    { key = "normal",  label = "Charge number colour" },
-    { key = "low",     label = "Low charge colour" },
-    { key = "outline", label = "Outline colour (numbers and Invention text)" },
-}
-local INVENTION_COLOUR_SETTINGS = {
-    { key = "invention",     label = "Invention text colour" },
-    { key = "invention_low", label = "Invention colour under 30 minutes" },
-}
+-- Small helpers for the settings page's controls, kept in one table because
+-- Lua allows only 200 local variables per file. Sliders, radio buttons and
+-- fancy buttons may be missing from older PrettyUI versions, so each is only
+-- added when PrettyUI has it.
+local add = {}
 
-local function addColourPickers(list)
-    for _, setting in ipairs(list) do
-        local key = setting.key
-        settingsView:AddText(setting.label)
-        settingsView:AddColourPicker({
-            value = toHex(colours[key]),
-            buttonSize = 32,
-            windowTitle = setting.label,
-            onChange = function(picker, colour)
-                colours[key] = fromHex(colour)
-                saveSetting("colour_" .. key, colours[key])
-                safeRender()
-            end,
-        })
-    end
+-- A colour picker under a label. after() runs once the colour is saved.
+function add.colour(key, label, after)
+    settingsView:AddText(label)
+    settingsView:AddColourPicker({
+        value = toHex(colours[key]),
+        buttonSize = 32,
+        windowTitle = label,
+        onChange = function(picker, colour)
+            colours[key] = fromHex(colour)
+            saveSetting("colour_" .. key, colours[key])
+            pcall(after or safeRender)
+        end,
+    })
+end
+
+-- A slider under a label that text() writes, so the label shows the value.
+-- set(value) gets each new whole-number value.
+function add.slider(text, min, max, step, value, set)
+    if settingsView.AddSlider == nil then return end
+    local label = settingsView:AddText(text())
+    settingsView:AddSlider({
+        min = min, max = max, step = step, value = value,
+        onChange = function(slider, v)
+            v = math.tointeger(v) or math.floor(v + 0.5)
+            if v < min or v > max then return end
+            set(v)
+            if label ~= nil then label.content = text() end
+        end,
+    })
+end
+
+-- A row of radio buttons after a label. set(value) gets the chosen value.
+function add.radio(label, choices, selected, set)
+    settingsView:AddText(label)
+    if settingsView.AddRadioButton == nil then return end
+    settingsView:AddRadioButton(choices, {
+        selectedValue = selected,
+        inline = true,
+        onChange = function(group, value) set(value) end,
+    })
+end
+
+function add.button(text, action)
+    if settingsView.AddFancyButton == nil then return end
+    settingsView:AddFancyButton(text, function()
+        local ok, err = pcall(action)
+        if not ok then print("Item Charges: " .. text .. ": " .. tostring(err)) end
+    end)
 end
 
 local THRESHOLD_SETTINGS = {
-    { kind = "potion",    key = "low_threshold_potion",    unit = "doses" },
-    { kind = "jewellery", key = "low_threshold_jewellery", unit = "charges" },
+    { kind = "potion",    key = "low_threshold_potion",    unit = "doses",   label = "Potions" },
+    { kind = "jewellery", key = "low_threshold_jewellery", unit = "charges", label = "Jewellery" },
 }
-
-local function lowThresholdText(setting)
-    local label = setting.kind == "potion" and "Potions" or "Jewellery"
-    return string.format("%s: low charge colour at %d %s or fewer", label,
-        lowThresholds[setting.kind], setting.unit)
-end
-
-local function refillText()
-    return string.format("Mark cauldrons for refill at %d doses or fewer", refillAt)
-end
-
-local function restockText()
-    return string.format("Mark for restock at %d doses or fewer", restockAt)
-end
 
 -- "Restore defaults" buttons, one per section. Each puts its section's
 -- settings back to how a new install starts. Learned cauldron numbers and the
--- cauldron window's position aren't settings, so they're kept. Everything is
--- kept in one table because Lua allows only 200 local variables per file.
+-- cauldron window's position aren't settings, so they're kept.
 local restore = {
     parent = nil,          -- the settings page area, for rebuilding it
     rebuildPending = false,
@@ -1635,10 +1602,8 @@ end
 -- on the next Logic update rather than inside the button's own click, since
 -- rebuilding destroys the button.
 function restore.addButton(text, reset)
-    if settingsView.AddFancyButton == nil then return end
-    settingsView:AddFancyButton(text, function()
-        local ok, err = pcall(reset)
-        if not ok then print("Item Charges: restore defaults error: " .. tostring(err)) end
+    add.button(text, function()
+        reset()
         safeRender()
         pcall(updateCauldronWindow)
         pcall(onSuppliesChanged)
@@ -1681,27 +1646,20 @@ local function buildSettingsPage(parent)
         end,
     })
 
-    -- Sliders may be missing from older PrettyUI versions.
-    if settingsView.AddSlider ~= nil then
-        for _, setting in ipairs(THRESHOLD_SETTINGS) do
-            local label = settingsView:AddText(lowThresholdText(setting))
-            settingsView:AddSlider({
-                min = 1, max = LOW_THRESHOLD_MAX, step = 1, value = lowThresholds[setting.kind],
-                onChange = function(slider, value)
-                    value = math.tointeger(value) or math.floor(value + 0.5)
-                    if value < 1 or value > LOW_THRESHOLD_MAX then return end
-                    lowThresholds[setting.kind] = value
-                    saveSetting(setting.key, value)
-                    if label ~= nil then
-                        label.content = lowThresholdText(setting)
-                    end
-                    safeRender()
-                end,
-            })
-        end
+    for _, setting in ipairs(THRESHOLD_SETTINGS) do
+        add.slider(function()
+            return string.format("%s: low charge colour at %d %s or fewer", setting.label,
+                lowThresholds[setting.kind], setting.unit)
+        end, 1, LOW_THRESHOLD_MAX, 1, lowThresholds[setting.kind], function(v)
+            lowThresholds[setting.kind] = v
+            saveSetting(setting.key, v)
+            safeRender()
+        end)
     end
 
-    addColourPickers(ITEM_COLOUR_SETTINGS)
+    add.colour("normal", "Charge number colour")
+    add.colour("low", "Low charge colour")
+    add.colour("outline", "Outline colour (numbers and Invention text)")
     restore.addButton("Restore number defaults", restore.numbers)
 
     settingsView:AddDivider()
@@ -1721,129 +1679,62 @@ local function buildSettingsPage(parent)
         end,
     })
 
-    -- Radio buttons may be missing from older PrettyUI versions.
-    if settingsView.AddRadioButton ~= nil then
-        settingsView:AddText("Invention text size:")
-        settingsView:AddRadioButton({
-            { text = "Normal", value = "normal" },
-            { text = "Small",  value = "small" },
-            { text = "XS",     value = "xs" },
-        }, {
-            selectedValue = inventionTextSize,
-            inline = true,
-            onChange = function(group, value)
-                if not TEXT_SIZES[value] then return end
-                inventionTextSize = value
-                saveSetting("invention_text_size", inventionTextSize)
-                safeRender()
-            end,
-        })
-    end
+    add.radio("Invention text size:", {
+        { text = "Normal", value = "normal" },
+        { text = "Small",  value = "small" },
+        { text = "XS",     value = "xs" },
+    }, inventionTextSize, function(value)
+        if not TEXT_SIZES[value] then return end
+        inventionTextSize = value
+        saveSetting("invention_text_size", inventionTextSize)
+        safeRender()
+    end)
 
-    addColourPickers(INVENTION_COLOUR_SETTINGS)
+    add.colour("invention", "Invention text colour")
+    add.colour("invention_low", "Invention colour under 30 minutes")
     restore.addButton("Restore Invention defaults", restore.invention)
 
     settingsView:AddDivider()
-    settingsView:AddText("Potion cauldron panel:")
-    if settingsView.AddRadioButton ~= nil then
-        settingsView:AddRadioButton({
-            { text = "When I enter my house", value = "house" },
-            { text = "Off", value = "off" },
-        }, {
-            selectedValue = cauldronMode,
-            inline = true,
-            onChange = function(group, value)
-                if not CAULDRON_MODES[value] then return end
-                cauldronMode = value
-                saveSetting("cauldron_panel", cauldronMode)
-            end,
-        })
-    end
-    if settingsView.AddFancyButton ~= nil then
-        settingsView:AddFancyButton("Show cauldron panel now", function()
-            local ok, err = pcall(showCauldronWindow)
-            if not ok then print("Item Charges: cauldron panel error: " .. tostring(err)) end
-        end)
-    end
-    if settingsView.AddSlider ~= nil then
-        local label = settingsView:AddText(refillText())
-        settingsView:AddSlider({
-            min = 0, max = REFILL_MAX, step = REFILL_STEP, value = refillAt,
-            onChange = function(slider, value)
-                value = math.tointeger(value) or math.floor(value + 0.5)
-                if value < 0 or value > REFILL_MAX then return end
-                refillAt = value
-                saveSetting("cauldron_refill_at", value)
-                if label ~= nil then
-                    label.content = refillText()
-                end
-                pcall(updateCauldronWindow)
-            end,
-        })
-    end
-    settingsView:AddText("Number over each cauldron")
-    settingsView:AddColourPicker({
-        value = toHex(colours.cauldron),
-        buttonSize = 32,
-        windowTitle = "Number over each cauldron",
-        onChange = function(picker, colour)
-            colours.cauldron = fromHex(colour)
-            saveSetting("colour_cauldron", colours.cauldron)
-        end,
-    })
-    settingsView:AddText("Cauldron refill colour (panel and numbers over cauldrons)")
-    settingsView:AddColourPicker({
-        value = toHex(colours.cauldron_low),
-        buttonSize = 32,
-        windowTitle = "Cauldron refill colour",
-        onChange = function(picker, colour)
-            colours.cauldron_low = fromHex(colour)
-            saveSetting("colour_cauldron_low", colours.cauldron_low)
-            pcall(updateCauldronWindow)
-        end,
-    })
+    add.radio("Potion cauldron panel:", {
+        { text = "When I enter my house", value = "house" },
+        { text = "Off", value = "off" },
+    }, cauldronMode, function(value)
+        if not CAULDRON_MODES[value] then return end
+        cauldronMode = value
+        saveSetting("cauldron_panel", cauldronMode)
+    end)
+    add.button("Show cauldron panel now", showCauldronWindow)
+    add.slider(function()
+        return string.format("Mark cauldrons for refill at %d doses or fewer", refillAt)
+    end, 0, REFILL_MAX, REFILL_STEP, refillAt, function(v)
+        refillAt = v
+        saveSetting("cauldron_refill_at", v)
+        updateCauldronWindow()
+    end)
+    -- The numbers over cauldrons pick up a new colour on the next game tick.
+    add.colour("cauldron", "Number over each cauldron", function() end)
+    add.colour("cauldron_low", "Cauldron refill colour (panel and numbers over cauldrons)", updateCauldronWindow)
     restore.addButton("Restore cauldron defaults", restore.cauldrons)
 
     settingsView:AddDivider()
     -- Kept short: the radio buttons sit on the same row and get cut off.
     settingsView:AddText("Potion supplies (counts your backpack, beast of burden and bank).")
-    settingsView:AddText("Potion supplies panel:")
-    if settingsView.AddRadioButton ~= nil then
-        settingsView:AddRadioButton({
-            { text = "Beside my bank", value = "bank" },
-            { text = "Off", value = "off" },
-        }, {
-            selectedValue = suppliesMode,
-            inline = true,
-            onChange = function(group, value)
-                if not SUPPLIES_MODES[value] then return end
-                suppliesMode = value
-                saveSetting("supplies_panel", suppliesMode)
-            end,
-        })
-    end
-    if settingsView.AddSlider ~= nil then
-        local label = settingsView:AddText(restockText())
-        settingsView:AddSlider({
-            min = 0, max = RESTOCK_MAX, step = RESTOCK_STEP, value = restockAt,
-            onChange = function(slider, value)
-                value = math.tointeger(value) or math.floor(value + 0.5)
-                if value < 0 or value > RESTOCK_MAX then return end
-                restockAt = value
-                saveSetting("supplies_restock_at", value)
-                if label ~= nil then
-                    label.content = restockText()
-                end
-                onSuppliesChanged()
-            end,
-        })
-    end
-    if settingsView.AddFancyButton ~= nil then
-        settingsView:AddFancyButton("Show potion supplies", function()
-            local ok, err = pcall(showSuppliesWindow)
-            if not ok then print("Item Charges: supplies panel error: " .. tostring(err)) end
-        end)
-    end
+    add.radio("Potion supplies panel:", {
+        { text = "Beside my bank", value = "bank" },
+        { text = "Off", value = "off" },
+    }, suppliesMode, function(value)
+        if not SUPPLIES_MODES[value] then return end
+        suppliesMode = value
+        saveSetting("supplies_panel", suppliesMode)
+    end)
+    add.slider(function()
+        return string.format("Mark for restock at %d doses or fewer", restockAt)
+    end, 0, RESTOCK_MAX, RESTOCK_STEP, restockAt, function(v)
+        restockAt = v
+        saveSetting("supplies_restock_at", v)
+        onSuppliesChanged()
+    end)
+    add.button("Show potion supplies", showSuppliesWindow)
     restore.addButton("Restore supplies defaults", restore.supplies)
 
     settingsView:AddDivider()
@@ -1872,16 +1763,10 @@ function PluginShutdown()
         pcall(function() settingsView:Destroy() end)
         settingsView = nil
     end
-    if cauldronWindow ~= nil then
-        pcall(function() cauldronWindow:Destroy() end)
-        cauldronWindow = nil
-    end
+    cauldronPanel:destroy()
     for _, label in pairs(cauldronLabels) do
         pcall(hideOutlinedText, label)
     end
-    if suppliesWindow ~= nil then
-        pcall(function() suppliesWindow:Destroy() end)
-        suppliesWindow = nil
-    end
+    suppliesPanel:destroy()
     closeSummary()
 end
