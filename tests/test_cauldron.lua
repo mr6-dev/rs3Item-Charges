@@ -323,6 +323,19 @@ for i = 1, 2 do handlers.ServerLogic() end
 check("last unmatched cauldron filled in", labelAt(23 * 50), "5")
 cauldronVars[1].value, cauldronVars[2].value = before1, before2
 
+-- Building a new cauldron far from where the player stands: it appears in
+-- the house the same tick cauldron 2 turns on, so it's number 2 straight away
+playerTile = tile(10, 10)
+cauldronVars[2].value = 0
+for i = 1, 4 do handlers.ServerLogic() end
+houseLocs[138359] = { { coordGrid = tile(21, 7) }, { coordGrid = tile(26, 7) } }
+cauldronVars[2].value = (146 << 1) | 1 | (5 << 13)
+handlers.ServerLogic()
+check("new cauldron numbered on build", labelAt(26 * 50), "2")
+houseLocs[138359] = { { coordGrid = tile(21, 7) } }
+cauldronVars[2].value = before2
+handlers.ServerLogic()
+
 -- Refill colour: cauldron 3 is empty (at or below the default 20), so its
 -- number is red; cauldron 4 has 106 doses, so it stays yellow
 local function labelColourAt(x)

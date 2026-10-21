@@ -1362,12 +1362,55 @@ local function setLabelIcon(label, item)
     label.item = item
 end
 
+-- A newly built cauldron: its number's variable turns on (built) and a new
+-- cauldron appears in the house within a few ticks of each other, so the two
+-- go together wherever the player is standing. LABEL.built and
+-- LABEL.appeared hold the tick each was seen.
+LABEL.BUILD_WINDOW = 2
+LABEL.built, LABEL.appeared = {}, {}
+
+local function matchNewBuilds()
+    for _, events in ipairs({ LABEL.built, LABEL.appeared }) do
+        for k, tick in pairs(events) do
+            if houseTicks - tick > LABEL.BUILD_WINDOW then events[k] = nil end
+        end
+    end
+    -- A built number already matched to a cauldron in the house (learned
+    -- because the player built it standing next to it) is settled.
+    for k, n in pairs(cauldronMap) do
+        if cauldronLocs[k] ~= nil then LABEL.built[n] = nil end
+    end
+    local number, spot, count = nil, nil, 0
+    for n in pairs(LABEL.built) do number, count = n, count + 1 end
+    for k in pairs(LABEL.appeared) do spot, count = k, count + 1 end
+    -- Exactly one of each, or it's unclear which goes with which.
+    if count ~= 2 or number == nil or spot == nil then return end
+    for k, n in pairs(cauldronMap) do
+        if n == number then cauldronMap[k] = nil end
+    end
+    cauldronMap[spot] = number
+    saveSetting("cauldron_map", cauldronMap)
+    LABEL.built, LABEL.appeared = {}, {}
+end
+
 local function cauldronLabelTick()
     houseTicks = houseTicks + 1
+    local settled = houseTicks > LABEL.LEARN_AFTER_TICKS
+    if not settled then LABEL.built, LABEL.appeared = {}, {} end
+    local previousLocs = cauldronLocs
     cauldronLocs = findCauldronLocs()
+    if settled then
+        for key in pairs(cauldronLocs) do
+            if previousLocs[key] == nil then LABEL.appeared[key] = houseTicks end
+        end
+    end
 
     for n = 1, CAULDRON_COUNT do
         local raw = readCauldronVar(n)
+        local was = lastSlotValues[n]
+        if settled and was ~= nil and was & 1 == 0 and raw ~= nil and raw & 1 == 1 then
+            LABEL.built[n] = houseTicks
+        end
         -- Only learn from a cauldron that's still built, so removing one
         -- doesn't credit a neighbour with its number.
         if houseTicks > LABEL.LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n]
@@ -1376,7 +1419,8 @@ local function cauldronLabelTick()
         end
         lastSlotValues[n] = raw
     end
-    if houseTicks > LABEL.LEARN_AFTER_TICKS then
+    if settled then
+        pcall(matchNewBuilds)
         pcall(fillUnmatchedCauldrons)
     end
 
