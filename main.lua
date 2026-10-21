@@ -1223,12 +1223,15 @@ local function isMap(v) return type(v) == "table" end
 local cauldronMap = loadSetting("cauldron_map", isMap, {})  -- spot -> number
 local cauldronLocs = {}        -- spot -> cauldron object, refreshed every tick
 
--- A cauldron's spot: its tile within the house, which stays the same between
--- visits even if the house instance is placed elsewhere in the world.
-local function spotKey(loc)
+-- A cauldron's spot: its kind (scenery ID) and its tile within the house,
+-- which stays the same between visits even if the house instance is placed
+-- elsewhere in the world. For example "138360@0:22:7".
+local function spotKey(loc, locID)
     local c = loc.coordGrid
-    return c.level .. ":" .. c.localX .. ":" .. c.localZ
+    return locID .. "@" .. c.level .. ":" .. c.localX .. ":" .. c.localZ
 end
+
+local function spotKind(key) return key:match("^(%d+)@") end
 
 local function findCauldronLocs()
     local found = {}
@@ -1236,12 +1239,60 @@ local function findCauldronLocs()
         local ok, locs = pcall(function() return LocList.ByConfigID(locID) end)
         if ok and locs ~= nil then
             for _, loc in ipairs(locs) do
-                local okKey, key = pcall(spotKey, loc)
+                local okKey, key = pcall(spotKey, loc, locID)
                 if okKey then found[key] = loc end
             end
         end
     end
     return found
+end
+
+-- Fills in unmatched cauldrons without the player having to use them:
+--  * Moved: a matched spot that no longer has a cauldron passes its number to
+--    the one unmatched cauldron of the same kind.
+--  * Last one left: if one cauldron is unmatched and one built cauldron
+--    number isn't used, they go together.
+-- Only run once the house has fully loaded, so a cauldron that hasn't loaded
+-- yet isn't mistaken for a moved one.
+local function fillUnmatchedCauldrons()
+    local unmatched, gone, used = {}, {}, {}
+    for key in pairs(cauldronLocs) do
+        if cauldronMap[key] == nil then unmatched[#unmatched + 1] = key end
+    end
+    for key, n in pairs(cauldronMap) do
+        if cauldronLocs[key] == nil then gone[#gone + 1] = key else used[n] = true end
+    end
+    if #unmatched == 0 then return end
+    local changed = false
+
+    for _, key in ipairs(unmatched) do
+        local kind, from, kindCount = spotKind(key), {}, 0
+        for _, other in ipairs(unmatched) do
+            if spotKind(other) == kind then kindCount = kindCount + 1 end
+        end
+        for _, old in ipairs(gone) do
+            if spotKind(old) == kind then from[#from + 1] = old end
+        end
+        if kindCount == 1 and #from == 1 and not used[cauldronMap[from[1]]] then
+            cauldronMap[key], cauldronMap[from[1]] = cauldronMap[from[1]], nil
+            used[cauldronMap[key]] = true
+            changed = true
+        end
+    end
+
+    local stillUnmatched, free = {}, {}
+    for _, key in ipairs(unmatched) do
+        if cauldronMap[key] == nil then stillUnmatched[#stillUnmatched + 1] = key end
+    end
+    for _, c in ipairs(readCauldrons()) do
+        if not used[c.number] then free[#free + 1] = c.number end
+    end
+    if #stillUnmatched == 1 and #free == 1 then
+        cauldronMap[stillUnmatched[1]] = free[1]
+        changed = true
+    end
+
+    if changed then saveSetting("cauldron_map", cauldronMap) end
 end
 
 -- The one cauldron closest to the player, if it's next to them. Nil when two
@@ -1317,10 +1368,16 @@ local function cauldronLabelTick()
 
     for n = 1, CAULDRON_COUNT do
         local raw = readCauldronVar(n)
-        if houseTicks > LABEL.LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n] then
+        -- Only learn from a cauldron that's still built, so removing one
+        -- doesn't credit a neighbour with its number.
+        if houseTicks > LABEL.LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n]
+            and raw ~= nil and raw & 1 == 1 then
             pcall(learnCauldron, n)
         end
         lastSlotValues[n] = raw
+    end
+    if houseTicks > LABEL.LEARN_AFTER_TICKS then
+        pcall(fillUnmatchedCauldrons)
     end
 
     loadPotions()

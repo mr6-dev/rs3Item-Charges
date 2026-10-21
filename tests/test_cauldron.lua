@@ -274,7 +274,7 @@ cauldronVars[4].value = (182 << 1) | 1 | (106 << 13)
 handlers.ServerLogic()
 check("middle learned as 4", labelAt(22 * 50), "4")
 check("others still ?", labelAt(21 * 50) .. labelAt(23 * 50), "??")
-check("match saved", saved.cauldron_map["0:22:7"], "4")
+check("match saved", saved.cauldron_map["138360@0:22:7"], "4")
 
 -- Filling the left cauldron while standing in front of it: it's number 3
 cauldronVars[3].value = 1
@@ -294,7 +294,7 @@ houseLocs[138361] = { { coordGrid = tile(22, 5) } }    -- move Arcane opposite B
 handlers.ServerLogic()
 cauldronVars[5].value = (146 << 1) | 1 | (1 << 13)
 handlers.ServerLogic()
-check("tie: nothing learned", saved.cauldron_map["0:22:5"], "nil")
+check("tie: nothing learned", saved.cauldron_map["138361@0:22:5"], "nil")
 houseLocs[138361] = { { coordGrid = tile(23, 7) } }
 
 -- Leaving hides the labels; the house loading again doesn't learn anything
@@ -304,8 +304,24 @@ handlers.LocAdded({ config = { id = 138359 } })
 playerTile = tile(23, 6)
 cauldronVars[2].value = (146 << 1) | 1 | (99 << 13)    -- arrives as the house loads
 handlers.ServerLogic()
-check("no learning while loading", saved.cauldron_map["0:23:7"], "nil")
+check("no learning while loading", saved.cauldron_map["138361@0:23:7"], "nil")
 check("matches kept between visits", labelAt(22 * 50) .. labelAt(21 * 50), "43")
+-- Moving the middle (Bubbling) cauldron: once the house has loaded, the new
+-- spot takes over its number without drinking from it again
+houseLocs[138360] = { { coordGrid = tile(25, 7) } }
+for i = 1, 6 do handlers.ServerLogic() end
+check("moved cauldron keeps its number", labelAt(25 * 50), "4")
+check("move saved", tostring(saved.cauldron_map["138360@0:25:7"]) .. " " .. tostring(saved.cauldron_map["138360@0:22:7"]), "4 nil")
+houseLocs[138360] = { { coordGrid = tile(22, 7) } }
+for i = 1, 2 do handlers.ServerLogic() end
+check("and moves back", labelAt(22 * 50), "4")
+-- Last one left: with only cauldrons 3, 4 and 5 built, and 3 and 4 matched,
+-- the one unmatched cauldron must be 5
+local before1, before2 = cauldronVars[1].value, cauldronVars[2].value
+cauldronVars[1].value, cauldronVars[2].value = 0, 0
+for i = 1, 2 do handlers.ServerLogic() end
+check("last unmatched cauldron filled in", labelAt(23 * 50), "5")
+cauldronVars[1].value, cauldronVars[2].value = before1, before2
 
 -- Refill colour: cauldron 3 is empty (at or below the default 20), so its
 -- number is red; cauldron 4 has 106 doses, so it stays yellow
