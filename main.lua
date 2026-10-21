@@ -34,6 +34,13 @@ local TRACKED_ITEMS = {
     ["castle wars brace"]  = true,
 }
 
+-- Items whose charges aren't in their name but in a player variable (found
+-- with `pan VarPlayer` and confirmed in-game). Lowercase name -> variable.
+-- These have no low charge colour, since their counts are far above 1 to 5.
+local VAR_CHARGED_ITEMS = {
+    ["spring cleaner"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+}
+
 -- Potions are detected by their "Drink" option (see isPotion). These words
 -- are a fallback if the option list can't be read. Lowercase.
 local POTION_NAME_WORDS = {
@@ -213,6 +220,20 @@ local function itemKind(obj, baseName)
     return nil
 end
 
+local function readVarPlayer(name)
+    local ok, value = pcall(function() return var.VarPlayer[name].value end)
+    if ok and type(value) == "number" then
+        return value
+    end
+    return nil
+end
+
+-- For items in VAR_CHARGED_ITEMS: their charges, or nil.
+local function varCharges(itemName)
+    local varName = VAR_CHARGED_ITEMS[string.lower(itemName)]
+    return varName and readVarPlayer(varName)
+end
+
 local warnedInventories = {}
 
 local function findInventory(invName)
@@ -248,6 +269,10 @@ local function collectChargedItems()
                 if slot ~= nil and slot.obj ~= nil and slot.count ~= 0 then
                     local baseName, charges = parseCharges(slot.obj.name)
                     local kind = baseName and itemKind(slot.obj, baseName)
+                    if kind == nil then
+                        charges = varCharges(slot.obj.name)
+                        kind = charges and "stored"
+                    end
                     if kind ~= nil then
                         local item = {
                             charges = charges,
@@ -539,6 +564,15 @@ local function findIconLayer(entry)
     return nil
 end
 
+-- Numbers must fit in the corner of an icon: 7501 -> "7K", like the game's
+-- own stack counts.
+local function shortNumber(n)
+    if n >= 1000 then
+        return string.format("%dK", n // 1000)
+    end
+    return tostring(n)
+end
+
 local function renderChargeNumbers(items)
     -- Slot -> item for each inventory, for icons that don't report an item.
     local itemsBySlot = {}
@@ -592,11 +626,12 @@ local function renderChargeNumbers(items)
                 end
                 if item ~= nil then
                     local colour = colours.normal
-                    if item.charges <= lowThresholds[item.kind] then
+                    local low = lowThresholds[item.kind]   -- nil for "stored" items
+                    if low ~= nil and item.charges <= low then
                         colour = colours.low
                     end
                     local group = getOverlayLabel(layerIndex .. ":" .. slotIndex)
-                    setOutlinedContent(group, tostring(item.charges), toVector4(colour))
+                    setOutlinedContent(group, shortNumber(item.charges), toVector4(colour))
                     -- Bottom-right of the icon, clear of the game's stack count.
                     addPlacement(group, icon, icon.width - OVERLAY_W, icon.height - OVERLAY_H,
                         OVERLAY_W, OVERLAY_H, clip, objID, checkQuantity)
@@ -624,14 +659,6 @@ local INVENTION_STYLES = {
 }
 
 local inventionLabels = nil
-
-local function readVarPlayer(name)
-    local ok, value = pcall(function() return var.VarPlayer[name].value end)
-    if ok and type(value) == "number" then
-        return value
-    end
-    return nil
-end
 
 -- "6h 38m", "38m 50s" or "45s"
 local function formatDuration(seconds)
@@ -774,6 +801,19 @@ Event.VarTransmit.Subscribe("itemChargesInvention", function(e)
     end)
     if ok and relevant then
         safeRender()
+    end
+end)
+
+-- Items charged from a player variable: rescan when one of those changes.
+Event.VarTransmit.Subscribe("itemChargesStoredCharges", function(e)
+    local ok, relevant = pcall(function()
+        for _, varName in pairs(VAR_CHARGED_ITEMS) do
+            if e.var == var.VarPlayer[varName] then return true end
+        end
+        return false
+    end)
+    if ok and relevant then
+        refresh()
     end
 end)
 

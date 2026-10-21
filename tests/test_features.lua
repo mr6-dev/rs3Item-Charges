@@ -11,6 +11,7 @@ backpack[2] = item("Ring of Wealth (2)", { "Wear" })   -- capital W, as on the w
 backpack[3] = item("Kethsi ring (1)", { "Wear" })
 backpack[4] = item("Super restore (2)", { "Drink" })
 backpack[5] = item("Ring of respawn (new)", { "Wear" })   -- no number: ignored
+backpack[6] = item("Spring cleaner", { "Operate" })      -- charges from a player variable
 
 local bob = {}
 for i = 1, 32 do bob[i] = item("") end
@@ -68,7 +69,9 @@ id = { Component = setmetatable({}, { __index = function(_, k) return k end }), 
 config = { Inv = { INV = "INV", WORN = "WORN", BANK = "BANK", LORE_BOB = "LORE_BOB" } }
 Player = { IsAvailable = function() return true end }
 local CHARGE, DRAIN = { value = 3000 * 1000000 }, { value = 3000 * 0.6 }   -- 1,000,000 charge, 1/s
-var = { VarPlayer = { INVENT_CHARGE = CHARGE, INVENT_COMBAT_CHARGE_DRAIN = DRAIN } }
+local CLEANER = { value = 7501 }
+var = { VarPlayer = { INVENT_CHARGE = CHARGE, INVENT_COMBAT_CHARGE_DRAIN = DRAIN,
+                      TRH53_SPRING_CLEANER_STORED_CHARGES = CLEANER } }
 layers.TOPLEVEL_V2_WORN__CONTENT_LAYER = comp({ xyGlobal = { x = 1500, y = 100 } })
 local saved = {}
 PersistentDB = {}
@@ -131,6 +134,13 @@ check("new jewellery, low = 1", numbersAt(516, 517),
 
 -- Beast of burden window: the second candidate layer has the icons
 check("beast of burden numbers", numbersAt(316, 317), "3(255,255,0)@314")
+
+-- Spring cleaner (backpack slot 6, row 2 at y 540): 7501 shown short, never
+-- in the low colour. Using it updates the number when the variable changes.
+check("spring cleaner", numbersAt(556, 557), "7K(255,255,0)@1054")
+CLEANER.value = 999
+handlers.VarTransmit({ var = CLEANER })
+check("spring cleaner updates", numbersAt(556, 557), "999(255,255,0)@1054")
 
 -- Settings page with a slider and separate Invention colours
 prettyui = { SimpleView = { new = function()
