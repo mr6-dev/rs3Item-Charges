@@ -15,6 +15,8 @@ cauldrons.
   wars brace.
 - **Spring cleaner**: its stored charges, shortened to thousands (7,501
   shows as "7K").
+- **Barrows equipment**: its condition, 100, 75, 50 or 25, and 0 when broken.
+  25 and broken use the low charge colour.
 
 - **Invention charge**: shown in the top-left corner of the worn equipment
   tab: combat time left, current charge and drain rate (for example
