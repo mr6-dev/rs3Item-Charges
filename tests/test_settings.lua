@@ -63,6 +63,7 @@ local function fresh()
         end
         function v:AddColourPicker(o) table.insert(self.items, { kind = "picker", opts = o }) end
         function v:AddDivider() table.insert(self.items, { kind = "divider" }) end
+        function v:AddFancyButton(t, fn) table.insert(self.items, { kind = "button", text = t, fn = fn }) end
         function v:Destroy() self.destroyed = true end
         views[#views + 1] = v
         return v
@@ -170,5 +171,20 @@ check("after restart: outline colour", rgb(p2.slot(1).outlines[1].colour), "255,
 p2.handlers.SettingsLayerReady({ component = { width = 640, height = 340 } })
 local cb2 = findItems(p2.views[1], "check")[1]
 check("after restart: checkbox ticked", cb2.choices[1].selected, "true")
+
+------------------------------------------------------------------ restore defaults
+local restore
+for _, b in ipairs(findItems(p2.views[1], "button")) do
+    if b.text == "Restore number defaults" then restore = b end
+end
+check("restore button present", restore ~= nil, "true")
+check("four restore buttons", (function() local n = 0; for _, b in ipairs(findItems(p2.views[1], "button")) do if b.text:find("^Restore") then n = n + 1 end end; return n end)(), "4")
+restore.fn()
+check("restored: number colour yellow", rgb(p2.slot(1).main.colour), "255,255,0")
+check("restored: outline off", visibleOutlines(p2.slot(1)), "0")
+check("restored: saved", tostring(savedData.outline_enabled) .. " " .. savedData.colour_normal.b, "false 0")
+p2.handlers.Logic()
+check("page rebuilt after restoring", #p2.views, "2")
+check("rebuilt checkbox unticked", findItems(p2.views[2], "check")[1].choices[1].selected, "false")
 
 print(string.format("\n%d passed, %d failed", pass, fail))

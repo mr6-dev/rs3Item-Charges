@@ -1178,10 +1178,12 @@ end)
 -- Matches are saved by the cauldron's spot in the house, so they're kept
 -- between visits. Unmatched cauldrons show "?".
 
-local LABEL_RANGE_SQ = 5       -- squared tiles: next to it, including diagonally
-local LABEL_HEIGHT = 700       -- fine units above the tile (a tile is 512)
-local LABEL_W, LABEL_H = 40, 24
-local LEARN_AFTER_TICKS = 5    -- ignore the variables arriving as the house loads
+local LABEL = {
+    RANGE_SQ = 5,              -- squared tiles: next to it, including diagonally
+    HEIGHT = 700,              -- fine units above the tile (a tile is 512)
+    W = 40, H = 24,
+    LEARN_AFTER_TICKS = 5,     -- ignore the variables arriving as the house loads
+}
 
 local function isMap(v) return type(v) == "table" end
 local cauldronMap = loadSetting("cauldron_map", isMap, {})  -- spot -> number
@@ -1212,7 +1214,7 @@ end
 -- are equally close, since then it can't be told which one was used.
 local function cauldronNextToPlayer()
     local p = Player.GetEntity().coordGrid
-    local bestKey, bestDist, tied = nil, LABEL_RANGE_SQ + 1, false
+    local bestKey, bestDist, tied = nil, LABEL.RANGE_SQ + 1, false
     for key, loc in pairs(cauldronLocs) do
         local c = loc.coordGrid
         if c.level == p.level then
@@ -1243,12 +1245,12 @@ local function placeCauldronLabels()
         local loc = cauldronLocs[key]
         local pos = nil
         if loc ~= nil then
-            pcall(function() pos = ScreenConvert.CoordGridToScreen(loc.coordGrid, LABEL_HEIGHT) end)
+            pcall(function() pos = ScreenConvert.CoordGridToScreen(loc.coordGrid, LABEL.HEIGHT) end)
         end
         if pos == nil then
             hideOutlinedText(label)
         else
-            placeOutlinedText(label, math.floor(pos.x - LABEL_W / 2), math.floor(pos.y - LABEL_H / 2))
+            placeOutlinedText(label, math.floor(pos.x - LABEL.W / 2), math.floor(pos.y - LABEL.H / 2))
         end
     end
 end
@@ -1259,7 +1261,7 @@ local function cauldronLabelTick()
 
     for n = 1, CAULDRON_COUNT do
         local raw = readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
-        if houseTicks > LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n] then
+        if houseTicks > LABEL.LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n] then
             pcall(learnCauldron, n)
         end
         lastSlotValues[n] = raw
@@ -1267,7 +1269,7 @@ local function cauldronLabelTick()
 
     for key in pairs(cauldronLocs) do
         if cauldronLabels[key] == nil then
-            cauldronLabels[key] = newOutlinedText(parentLayer, LABEL_W, LABEL_H)
+            cauldronLabels[key] = newOutlinedText(parentLayer, LABEL.W, LABEL.H)
         end
         local number = cauldronMap[key]
         local colour = colours.cauldron
@@ -1575,7 +1577,77 @@ local function restockText()
     return string.format("Mark for restock at %d doses or fewer", restockAt)
 end
 
+-- "Restore defaults" buttons, one per section. Each puts its section's
+-- settings back to how a new install starts. Learned cauldron numbers and the
+-- cauldron window's position aren't settings, so they're kept. Everything is
+-- kept in one table because Lua allows only 200 local variables per file.
+local restore = {
+    parent = nil,          -- the settings page area, for rebuilding it
+    rebuildPending = false,
+}
+
+function restore.colours(keys)
+    for _, key in ipairs(keys) do
+        local d = DEFAULT_COLOURS[key]
+        colours[key] = { r = d.r, g = d.g, b = d.b }
+        saveSetting("colour_" .. key, colours[key])
+    end
+end
+
+function restore.numbers()
+    outlineEnabled, showInBank, showOnActionBars = false, true, true
+    saveSetting("outline_enabled", outlineEnabled)
+    saveSetting("show_in_bank", showInBank)
+    saveSetting("show_on_action_bars", showOnActionBars)
+    for _, setting in ipairs(THRESHOLD_SETTINGS) do
+        lowThresholds[setting.kind] = 1
+        saveSetting(setting.key, 1)
+    end
+    restore.colours({ "normal", "low", "outline" })
+end
+
+function restore.invention()
+    for _, line in ipairs(INVENTION_LINES) do
+        showInventionLine[line.value] = true
+        saveSetting(line.key, true)
+    end
+    inventionTextSize = "normal"
+    saveSetting("invention_text_size", inventionTextSize)
+    restore.colours({ "invention", "invention_low" })
+end
+
+function restore.cauldrons()
+    cauldronMode = "house"
+    saveSetting("cauldron_panel", cauldronMode)
+    refillAt = 20
+    saveSetting("cauldron_refill_at", refillAt)
+    restore.colours({ "cauldron", "cauldron_low" })
+end
+
+function restore.supplies()
+    suppliesMode = "bank"
+    saveSetting("supplies_panel", suppliesMode)
+    restockAt = 50
+    saveSetting("supplies_restock_at", restockAt)
+end
+
+-- The page is rebuilt so its controls show the restored values. That's done
+-- on the next Logic update rather than inside the button's own click, since
+-- rebuilding destroys the button.
+function restore.addButton(text, reset)
+    if settingsView.AddFancyButton == nil then return end
+    settingsView:AddFancyButton(text, function()
+        local ok, err = pcall(reset)
+        if not ok then print("Item Charges: restore defaults error: " .. tostring(err)) end
+        safeRender()
+        pcall(updateCauldronWindow)
+        pcall(onSuppliesChanged)
+        restore.rebuildPending = true
+    end)
+end
+
 local function buildSettingsPage(parent)
+    restore.parent = parent
     if settingsView ~= nil then
         pcall(function() settingsView:Destroy() end)
         settingsView = nil
@@ -1630,6 +1702,7 @@ local function buildSettingsPage(parent)
     end
 
     addColourPickers(ITEM_COLOUR_SETTINGS)
+    restore.addButton("Restore number defaults", restore.numbers)
 
     settingsView:AddDivider()
     settingsView:AddText("Invention charge (worn equipment tab):")
@@ -1668,6 +1741,7 @@ local function buildSettingsPage(parent)
     end
 
     addColourPickers(INVENTION_COLOUR_SETTINGS)
+    restore.addButton("Restore Invention defaults", restore.invention)
 
     settingsView:AddDivider()
     settingsView:AddText("Potion cauldron panel:")
@@ -1728,6 +1802,7 @@ local function buildSettingsPage(parent)
             pcall(updateCauldronWindow)
         end,
     })
+    restore.addButton("Restore cauldron defaults", restore.cauldrons)
 
     settingsView:AddDivider()
     -- Kept short: the radio buttons sit on the same row and get cut off.
@@ -1769,6 +1844,7 @@ local function buildSettingsPage(parent)
             if not ok then print("Item Charges: supplies panel error: " .. tostring(err)) end
         end)
     end
+    restore.addButton("Restore supplies defaults", restore.supplies)
 
     settingsView:AddDivider()
     settingsView:AddText("Settings page built with PrettyUI by rsnJ3 (prettyui.j3.gg).")
@@ -1776,6 +1852,15 @@ end
 
 Event.SettingsLayerReady.Subscribe("itemChargesSettings", function(settingsEvent)
     local ok, err = pcall(buildSettingsPage, settingsEvent.component)
+    if not ok then
+        print("Item Charges: settings page error: " .. tostring(err))
+    end
+end)
+
+Event.Logic.Subscribe("itemChargesSettingsRebuild", function()
+    if not restore.rebuildPending or restore.parent == nil then return end
+    restore.rebuildPending = false
+    local ok, err = pcall(buildSettingsPage, restore.parent)
     if not ok then
         print("Item Charges: settings page error: " .. tostring(err))
     end
