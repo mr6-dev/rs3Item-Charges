@@ -1239,8 +1239,10 @@ local function findCauldronLocs()
         local ok, locs = pcall(function() return LocList.ByConfigID(locID) end)
         if ok and locs ~= nil then
             for _, loc in ipairs(locs) do
+                -- A removed cauldron can linger in the list, hidden or invalid.
+                local okShown, shown = pcall(function() return loc.isValid ~= false and not loc.isHidden end)
                 local okKey, key = pcall(spotKey, loc, locID)
-                if okKey then found[key] = loc end
+                if okKey and (not okShown or shown) then found[key] = loc end
             end
         end
     end
@@ -1447,6 +1449,9 @@ local function cauldronLabelTick()
         local text = "?"
         if number ~= nil then
             text = (label.showIcon and label.icon ~= nil) and "" or tostring(number)
+            -- Its number isn't built any more: the cauldron was removed, even
+            -- if its scenery hasn't gone from the list yet.
+            if raw == nil or raw & 1 == 0 then text = "" end
         end
         setOutlinedContent(label, text, toVector4(colour))
     end

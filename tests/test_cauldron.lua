@@ -332,6 +332,16 @@ houseLocs[138359] = { { coordGrid = tile(21, 7) }, { coordGrid = tile(26, 7) } }
 cauldronVars[2].value = (146 << 1) | 1 | (5 << 13)
 handlers.ServerLogic()
 check("new cauldron numbered on build", labelAt(26 * 50), "2")
+
+-- Removing a cauldron: its scenery may linger in the list (hidden), and its
+-- number stops being built. Either way nothing shows over it
+houseLocs[138359][2].isHidden = true
+handlers.ServerLogic()
+check("hidden cauldron has no label", labelAt(26 * 50), "none")
+houseLocs[138359][2].isHidden = nil
+cauldronVars[2].value = 0
+handlers.ServerLogic()
+check("removed cauldron's number cleared", labelAt(26 * 50), "")
 houseLocs[138359] = { { coordGrid = tile(21, 7) } }
 cauldronVars[2].value = before2
 handlers.ServerLogic()
