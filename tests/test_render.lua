@@ -14,10 +14,6 @@ local backpack = {
     item("Bones", { "Bury" }),                                 -- no number: ignored
     item("Mysterious widget (2)", { "Inspect" }),              -- number but not a potion: ignored
     item("Vial", { "Fill" }),                                  -- empty vial: ignored
-    item("Dharok's helm 75", { "Wear" }),                      -- Barrows: condition in the name
-    item("Dharok's helm (broken)", { "Use" }),                 -- broken Barrows: 0
-    item("Dharok's helm", { "Wear" }),                         -- unused Barrows: no number
-    item("Ahrim's staff 25", { "Wield" }),
 }
 for i = #backpack + 1, 28 do backpack[i] = item("") end        -- empty slots come back as ""
 
@@ -119,7 +115,7 @@ end
 
 -- Expected: 2 necklaces + 3 potions in the backpack, 2 worn items.
 -- A number sits at the icon's bottom-right: (iconX + 36 - 22, iconY + 32 - 16)
-check("total numbers", #nums, "10")
+check("total numbers", #nums, "7")
 check("necklace 8 on backpack slot 1", has("8", 1664, 736), "yes")
 check("necklace 1 on backpack slot 2", has("1", 1704, 736), "yes")
 check("attack potion 3 on slot 3 (Drink)", has("3", 1744, 736), "yes")
@@ -128,15 +124,11 @@ check("salve 6 on slot 5 (name backup)", has("6", 1664, 772), "yes")
 check("non-potion widget (2) ignored", has("2", 1744, 772), "no")
 check("glory 4 on worn slot 3", has("4", 1414, 416), "yes")
 check("duelling 5 on worn slot 13", has("5", 1314, 596), "yes")
-check("Barrows helm 75 on slot 9", has("75", 1664, 808), "yes")
-check("broken Barrows helm shows 0", has("0", 1704, 808), "yes")
-check("unused Barrows helm: no number", has("100", 1744, 808), "no")
-check("Ahrim's staff 25 on slot 12", has("25", 1784, 808), "yes")
 
 -- Closing the worn equipment tab hides only the worn numbers
 wornLayer.visibleGlobal = false
 handlers.ServerLogic()
-check("after closing worn tab", #visibleNumbers(), "8")
+check("after closing worn tab", #visibleNumbers(), "5")
 
 -- Closing the backpack too hides everything
 backpackLayer.visibleGlobal = false

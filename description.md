@@ -11,9 +11,6 @@ Games necklace, amulet of glory, ring of duelling, skills necklace, combat brace
 **Spring cleaner**
 Every tier of the Spring cleaner shows its stored charges, shortened to thousands so it fits on the icon (7,501 shows as "7K").
 
-**Barrows equipment**
-Barrows armour and weapons show their condition (100, 75, 50 or 25, and 0 when broken), with 25 and broken in the low charge colour.
-
 Items that are running low show their number in a separate "low charge" colour. You choose what counts as low, separately for potions and jewellery (1 to 5 doses or charges).
 
 ## Where numbers appear

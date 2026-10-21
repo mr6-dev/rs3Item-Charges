@@ -47,14 +47,6 @@ local VAR_CHARGED_ITEMS = {
     ["spring cleaner 9001"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
 }
 
--- Barrows equipment shows its condition in its name, from "Dharok's helm 100"
--- through 75, 50 and 25 to "Dharok's helm (broken)", shown as 0. Unused
--- pieces ("Dharok's helm") have no number. Lowercase brother names.
-local BARROWS_BROTHERS = {
-    ahrim = true, dharok = true, guthan = true, karil = true,
-    torag = true, verac = true, akrisae = true, linza = true,
-}
-
 -- Potions are detected by their "Drink" option (see isPotion). These words
 -- are a fallback if the option list can't be read. Lowercase.
 local POTION_NAME_WORDS = {
@@ -154,8 +146,7 @@ local cauldronMode = loadSetting("cauldron_panel", function(v) return CAULDRON_M
 local function isCoord(v) return type(v) == "number" and v >= 0 end
 
 -- At or below these, numbers use the low colour. Separate for potions (doses)
--- and jewellery (charges). Barrows equipment is low at its last stage (25)
--- and when broken; that one isn't a setting.
+-- and jewellery (charges).
 local LOW_THRESHOLD_MAX = 5
 local function isThreshold(v)
     return math.type(v) == "integer" and v >= 1 and v <= LOW_THRESHOLD_MAX
@@ -163,7 +154,6 @@ end
 local lowThresholds = {
     potion    = loadSetting("low_threshold_potion", isThreshold, 1),
     jewellery = loadSetting("low_threshold_jewellery", isThreshold, 1),
-    barrows   = 25,
 }
 
 -- The potion supplies panel marks a potion for restocking at or below this
@@ -263,17 +253,6 @@ local function readVarPlayer(name)
     return nil
 end
 
--- For Barrows equipment: its condition (100, 75, 50, 25, or 0 if broken), or nil.
-local function barrowsCondition(itemName)
-    local lower = string.lower(itemName)
-    local brother = string.match(lower, "^(%a+)'s ")
-    if brother == nil or not BARROWS_BROTHERS[brother] then return nil end
-    if string.match(lower, " %(broken%)$") then return 0 end
-    local n = tonumber(string.match(lower, " (%d+)$"))
-    if n == 100 or n == 75 or n == 50 or n == 25 then return n end
-    return nil
-end
-
 -- For items in VAR_CHARGED_ITEMS: their charges, or nil.
 local function varCharges(itemName)
     local varName = VAR_CHARGED_ITEMS[string.lower(itemName)]
@@ -315,10 +294,6 @@ local function collectChargedItems()
                 if slot ~= nil and slot.obj ~= nil and slot.count ~= 0 then
                     local baseName, charges = parseCharges(slot.obj.name)
                     local kind = baseName and itemKind(slot.obj, baseName)
-                    if kind == nil then
-                        charges = barrowsCondition(slot.obj.name)
-                        kind = charges and "barrows"
-                    end
                     if kind == nil then
                         charges = varCharges(slot.obj.name)
                         kind = charges and "stored"
