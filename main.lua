@@ -1096,16 +1096,25 @@ local function supplyLines()
     end)
 
     local lines = {}
+    local restockCount = 0
     for _, potion in ipairs(list) do
-        local restock = potion.doses <= restockAt and "  (restock)" or ""
+        local restock = ""
+        if potion.doses <= restockAt then
+            restock = "  (restock)"
+            restockCount = restockCount + 1
+        end
         lines[#lines + 1] = string.format("%s: %d dose%s%s", potion.name, potion.doses,
             potion.doses == 1 and "" or "s", restock)
     end
     if #lines == 0 then
         lines[1] = "No potions found. Open your bank once to include it."
     end
-    return lines
+    return lines, restockCount
 end
+
+-- Where the list window opens: from the settings page, the left edge of the
+-- screen; from the bank, under the summary beside the bank.
+local suppliesPos = { x = 40, y = 200 }
 
 -- Same approach as the cauldron window: sized to its lines, rebuilt when the
 -- number of lines changes. PrettyUI windows have a scroll bar, so long lists
@@ -1116,7 +1125,7 @@ local function buildSuppliesWindow(lineCount)
     end
     suppliesWindow = prettyui.Window.new(parentLayer, {
         title = "Potion supplies",
-        x = 40, y = 200, width = 440,   -- left edge, clear of the bank window
+        x = suppliesPos.x, y = suppliesPos.y, width = 440,
         height = 44 + math.min(lineCount, SUPPLIES_MAX_VISIBLE_LINES) * 26,
         onClose = function() suppliesWindowOpen = false end,
     })
@@ -1138,25 +1147,18 @@ local function updateSuppliesWindow()
     end
 end
 
-local function showSuppliesWindow()
+-- x and y are optional; the window is rebuilt if it should open elsewhere.
+local function showSuppliesWindow(x, y)
     if parentLayer == nil or prettyui == nil then return end
-    if suppliesWindow == nil then
+    x, y = x or 40, y or 200
+    if suppliesWindow == nil or x ~= suppliesPos.x or y ~= suppliesPos.y then
+        suppliesPos = { x = x, y = y }
         buildSuppliesWindow(#supplyLines())
     end
     suppliesWindowOpen = true
     updateSuppliesWindow()
     suppliesWindow:Show()
 end
-
-local function onSuppliesChanged()
-    pcall(function()
-        saveBankIfOpen()
-        updateSuppliesWindow()
-    end)
-end
-Event.InventoryAdded.Subscribe("itemChargesSuppliesAdded", onSuppliesChanged)
-Event.InventoryUpdated.Subscribe("itemChargesSuppliesUpdated", onSuppliesChanged)
-Event.InventoryRemoved.Subscribe("itemChargesSuppliesRemoved", onSuppliesChanged)
 
 local function closeSuppliesWindow()
     if suppliesWindow ~= nil and suppliesWindowOpen then
@@ -1165,20 +1167,83 @@ local function closeSuppliesWindow()
     suppliesWindowOpen = false
 end
 
--- Opening the bank pops the panel up, and closing the bank closes it again.
--- The bank counts as open while its item area is on screen; checked once a
--- game tick.
+-- The summary beside the bank: how many potions need restocking, and a
+-- button that opens the full list underneath it.
+local summaryWindow = nil
+local summaryText = nil
+local SUMMARY_W, SUMMARY_H = 260, 120
+
+local function summaryLine()
+    local _, restockCount = supplyLines()
+    if restockCount == 0 then return "Nothing to restock." end
+    return string.format("%d potion%s to restock.", restockCount, restockCount == 1 and "" or "s")
+end
+
+local function updateSummary()
+    if summaryText ~= nil then
+        summaryText.content = summaryLine()
+    end
+end
+
+local function closeSummary()
+    if summaryWindow ~= nil then
+        pcall(function() summaryWindow:Destroy() end)
+    end
+    summaryWindow, summaryText = nil, nil
+end
+
+local function showSummary(x, y)
+    closeSummary()
+    summaryWindow = prettyui.Window.new(parentLayer, {
+        title = "Potion supplies", x = x, y = y, width = SUMMARY_W, height = SUMMARY_H,
+    })
+    summaryText = summaryWindow:AddText(summaryLine())
+    summaryWindow:AddFancyButton("Show list", function()
+        local ok, err = pcall(showSuppliesWindow, x, y + SUMMARY_H + 10)
+        if not ok then print("Item Charges: supplies panel error: " .. tostring(err)) end
+    end)
+    summaryWindow:Show()
+end
+
+local function onSuppliesChanged()
+    pcall(function()
+        saveBankIfOpen()
+        updateSuppliesWindow()
+        updateSummary()
+    end)
+end
+Event.InventoryAdded.Subscribe("itemChargesSuppliesAdded", onSuppliesChanged)
+Event.InventoryUpdated.Subscribe("itemChargesSuppliesUpdated", onSuppliesChanged)
+Event.InventoryRemoved.Subscribe("itemChargesSuppliesRemoved", onSuppliesChanged)
+
+-- Opening the bank shows the summary to the right of the bank window, and
+-- closing the bank closes it (and the list). The bank counts as open while
+-- its item area is on screen; checked once a game tick. The bank window's
+-- right edge is just past its backpack panel, and its top is about 95 pixels
+-- above the item area (measured from a screenshot).
 local BANK_OPEN_COMPONENT = "BANK__BANK_ITEMS_CONTAINER"
+local BANK_BACKPACK_COMPONENT = "BANK__INVENTORY_SLOTS"
+local BANK_RIGHT_GAP, BANK_TOP_OFFSET = 40, 95
 local bankWasOpen = false
+
+local function besideBank(items)
+    local backpack = findComponentByName(BANK_BACKPACK_COMPONENT)
+    local right = items.xyGlobal.x + items.width
+    if backpack ~= nil and backpack.visibleGlobal then
+        right = backpack.xyGlobal.x + backpack.width
+    end
+    return right + BANK_RIGHT_GAP, math.max(0, items.xyGlobal.y - BANK_TOP_OFFSET)
+end
 
 Event.ServerLogic.Subscribe("itemChargesSuppliesBank", function()
     pcall(function()
-        local container = findComponentByName(BANK_OPEN_COMPONENT)
-        local bankOpen = container ~= nil and container.visibleGlobal == true
+        local items = findComponentByName(BANK_OPEN_COMPONENT)
+        local bankOpen = items ~= nil and items.visibleGlobal == true
         if suppliesMode == "bank" then
             if bankOpen and not bankWasOpen then
-                showSuppliesWindow()
+                showSummary(besideBank(items))
             elseif bankWasOpen and not bankOpen then
+                closeSummary()
                 closeSuppliesWindow()
             end
         end
@@ -1355,7 +1420,7 @@ local function buildSettingsPage(parent)
     settingsView:AddText("Potion supplies panel (backpack, beast of burden and bank):")
     if settingsView.AddRadioButton ~= nil then
         settingsView:AddRadioButton({
-            { text = "When I open my bank", value = "bank" },
+            { text = "Beside my bank", value = "bank" },
             { text = "Off", value = "off" },
         }, {
             selectedValue = suppliesMode,
@@ -1415,4 +1480,5 @@ function PluginShutdown()
         pcall(function() suppliesWindow:Destroy() end)
         suppliesWindow = nil
     end
+    closeSummary()
 end

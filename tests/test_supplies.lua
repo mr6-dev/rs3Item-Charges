@@ -63,6 +63,7 @@ prettyui = {
     Window = { new = function(parent, opts)
         local w = { opts = opts, rows = {}, shown = false, destroyed = false }
         function w:AddText(t) local r = { content = t }; self.rows[#self.rows + 1] = r; return r end
+        function w:AddFancyButton(text, action) self.button = action end
         function w:Show() self.shown = true end
         function w:Close() self.shown = false; if self.opts.onClose then self.opts.onClose(self) end end
         function w:Destroy() self.destroyed = true end
@@ -135,14 +136,28 @@ handlers.InventoryUpdated({})
 check("updates live", lines(),
       "Prayer potion: 3 doses  (restock) | Saradomin brew flask: 12 doses | Super restore: 45 doses")
 
--- Opening the bank pops the panel up; closing the bank closes it
-win():Close()
+-- Opening the bank shows a small summary to the right of the bank (bank item
+-- area at 100,300, 400 wide; no backpack panel in this test -> x 540, y 205)
+local list = win()
+list:Close()
 bankContainer.visibleGlobal = true
+bankContainer.xyGlobal = { x = 100, y = 300 }
+bankContainer.width = 400
 handlers.ServerLogic()
-check("opens with the bank", win().shown, "true")
+local summary = win()
+check("summary beside the bank", summary.shown and summary.opts.x .. "," .. summary.opts.y, "540,205")
+check("summary text", summary.rows[1].content, "1 potion to restock.")
+check("list stays closed", list.shown, "false")
+
+-- Its button opens the list underneath it
+summary.button()
+check("list opens under the summary", win().shown and win().opts.x .. "," .. win().opts.y, "540,335")
+
+-- Closing the bank closes both
+local listFromBank = win()
 bankContainer.visibleGlobal = false
 handlers.ServerLogic()
-check("closes with the bank", win().shown, "false")
+check("closes with the bank", tostring(summary.destroyed) .. "," .. tostring(listFromBank.shown), "true,false")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()
