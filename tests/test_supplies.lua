@@ -118,8 +118,8 @@ check("panel title", win().opts.title, "Potion supplies")
 check("totals, lowest first", lines(),
       "Prayer potion: 3 doses  (restock) | Saradomin brew flask: 12 doses  (restock) | Super restore: 46 doses  (restock)")
 
--- Restock slider (the third slider) down to 10: only the prayer potion is marked
-view.sliders[3].onChange(nil, 10)
+-- Restock slider (the fourth, after the cauldron refill slider) down to 10: only the prayer potion is marked
+view.sliders[4].onChange(nil, 10)
 check("restock level saved", saved.supplies_restock_at, "10")
 check("restock at 10", lines(),
       "Prayer potion: 3 doses  (restock) | Saradomin brew flask: 12 doses | Super restore: 46 doses")

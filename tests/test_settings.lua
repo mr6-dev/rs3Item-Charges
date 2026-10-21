@@ -136,7 +136,7 @@ local view = p.views[1]
 local pickers = findItems(view, "picker")
 local checkbox = findItems(view, "check")[1]
 check("view sized to the page", view.opts.width .. "x" .. view.opts.height, "640x340")
-check("number of colour pickers", #pickers, "5")
+check("number of colour pickers", #pickers, "6")
 check("normal picker starts yellow", string.format("0x%08X", pickers[1].opts.value), "0xFFFF00FF")
 check("low picker starts red", string.format("0x%08X", pickers[2].opts.value), "0xFF4040FF")
 check("outline picker starts black", string.format("0x%08X", pickers[3].opts.value), "0x000000FF")

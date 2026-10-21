@@ -120,6 +120,7 @@ local DEFAULT_COLOURS = {
     outline        = { r = 0,   g = 0,   b = 0 },   -- black
     invention      = { r = 255, g = 255, b = 0 },
     invention_low  = { r = 255, g = 64,  b = 64 },
+    cauldron_low   = { r = 255, g = 64,  b = 64 },
 }
 
 local function isColour(v)
@@ -163,6 +164,13 @@ local RESTOCK_STEP = 10
 local restockAt = loadSetting("supplies_restock_at", function(v)
     return math.type(v) == "integer" and v >= 0 and v <= RESTOCK_MAX
 end, 50)
+
+-- A potion cauldron is marked for refilling at or below this many doses.
+local REFILL_MAX = 500
+local REFILL_STEP = 10
+local refillAt = loadSetting("cauldron_refill_at", function(v)
+    return math.type(v) == "integer" and v >= 0 and v <= REFILL_MAX
+end, 20)
 
 local SUPPLIES_MODES = { bank = true, off = true }
 local suppliesMode = loadSetting("supplies_panel", function(v) return SUPPLIES_MODES[v] == true end, "bank")
@@ -917,6 +925,7 @@ local ROW_GAP_LIMIT = 50   -- stop walking after this many rows from other table
 local potionNames = nil    -- potion ID -> name, built on first use
 local cauldronWindow = nil
 local cauldronRows = {}
+local cauldronRowColour = nil  -- PrettyUI's default text colour, to restore
 local cauldronWindowOpen = false
 local cauldronShownThisVisit = false
 local cauldronOffset = nil     -- viewport screen position minus the window's x, y
@@ -979,19 +988,24 @@ local function cauldronLines()
     end
     local lines = {}
     -- Numbered by the game's cauldron number, which the labels over the
-    -- cauldrons in the house also show.
+    -- cauldrons in the house also show. lows[i] is true when line i needs a
+    -- refill.
+    local lows = {}
     for _, c in ipairs(readCauldrons()) do
+        local refill = c.doses <= refillAt and "  (refill)" or ""
         if c.doses == 0 then
-            lines[#lines + 1] = c.number .. ". Empty"
+            lines[#lines + 1] = c.number .. ". Empty" .. refill
         else
             local name = potionNames[c.potionID] or ("Unknown potion (" .. c.potionID .. ")")
-            lines[#lines + 1] = string.format("%d. %s: %d dose%s", c.number, name, c.doses, c.doses == 1 and "" or "s")
+            lines[#lines + 1] = string.format("%d. %s: %d dose%s%s", c.number, name, c.doses,
+                c.doses == 1 and "" or "s", refill)
         end
+        lows[#lines] = refill ~= ""
     end
     if #lines == 0 then
         lines[1] = "No potion cauldrons built."
     end
-    return lines
+    return lines, lows
 end
 
 -- The window is sized to its lines, so it's rebuilt if the number of lines
@@ -1007,9 +1021,11 @@ local function buildCauldronWindow(lineCount)
     })
     cauldronOffset = nil
     cauldronRows = {}
+    cauldronRowColour = nil
     for i = 1, lineCount do
         cauldronRows[i] = cauldronWindow:AddText("")
     end
+    pcall(function() cauldronRowColour = cauldronRows[1].colour end)
 end
 
 local function cauldronValuesKey()
@@ -1023,7 +1039,7 @@ end
 local function updateCauldronWindow()
     if cauldronWindow == nil then return end
     lastCauldronValues = cauldronValuesKey()
-    local lines = cauldronLines()
+    local lines, lows = cauldronLines()
     if #lines ~= #cauldronRows then
         -- Destroying the old window may run its onClose, so remember whether
         -- it was open first.
@@ -1034,6 +1050,13 @@ local function updateCauldronWindow()
     end
     for i, line in ipairs(lines) do
         cauldronRows[i].content = line
+        -- Lines needing a refill use the refill colour; the rest keep
+        -- PrettyUI's own text colour.
+        if lows[i] then
+            cauldronRows[i].colour = toVector4(colours.cauldron_low)
+        elseif cauldronRowColour ~= nil then
+            cauldronRows[i].colour = cauldronRowColour
+        end
     end
 end
 
@@ -1240,7 +1263,12 @@ local function cauldronLabelTick()
             cauldronLabels[key] = newOutlinedText(parentLayer, LABEL_W, LABEL_H)
         end
         local number = cauldronMap[key]
-        setOutlinedContent(cauldronLabels[key], number and tostring(number) or "?", toVector4(colours.normal))
+        local colour = colours.normal
+        local raw = number and lastSlotValues[number]
+        if raw ~= nil and (raw >> 13) & 0xFFF <= refillAt then
+            colour = colours.cauldron_low
+        end
+        setOutlinedContent(cauldronLabels[key], number and tostring(number) or "?", toVector4(colour))
     end
     placeCauldronLabels()
 end
@@ -1532,6 +1560,10 @@ local function lowThresholdText(setting)
         lowThresholds[setting.kind], setting.unit)
 end
 
+local function refillText()
+    return string.format("Mark cauldrons for refill at %d doses or fewer", refillAt)
+end
+
 local function restockText()
     return string.format("Mark for restock at %d doses or fewer", restockAt)
 end
@@ -1652,6 +1684,33 @@ local function buildSettingsPage(parent)
             if not ok then print("Item Charges: cauldron panel error: " .. tostring(err)) end
         end)
     end
+    if settingsView.AddSlider ~= nil then
+        local label = settingsView:AddText(refillText())
+        settingsView:AddSlider({
+            min = 0, max = REFILL_MAX, step = REFILL_STEP, value = refillAt,
+            onChange = function(slider, value)
+                value = math.tointeger(value) or math.floor(value + 0.5)
+                if value < 0 or value > REFILL_MAX then return end
+                refillAt = value
+                saveSetting("cauldron_refill_at", value)
+                if label ~= nil then
+                    label.content = refillText()
+                end
+                pcall(updateCauldronWindow)
+            end,
+        })
+    end
+    settingsView:AddText("Cauldron refill colour (panel and numbers over cauldrons)")
+    settingsView:AddColourPicker({
+        value = toHex(colours.cauldron_low),
+        buttonSize = 32,
+        windowTitle = "Cauldron refill colour",
+        onChange = function(picker, colour)
+            colours.cauldron_low = fromHex(colour)
+            saveSetting("colour_cauldron_low", colours.cauldron_low)
+            pcall(updateCauldronWindow)
+        end,
+    })
 
     settingsView:AddDivider()
     settingsView:AddText("Potion supplies panel (backpack, beast of burden and bank):")

@@ -70,6 +70,9 @@ Manage tab.
   from the item number colours.
 - **Potion cauldron panel**: when you enter your house, or off. "Show cauldron
   panel now" opens it anywhere.
+- **Cauldron refill level** / **Cauldron refill colour**: cauldrons at or below
+  this many doses (0 to 500, default 20) are marked "(refill)" in the panel,
+  and their line and number over the cauldron use the refill colour.
 
 Changes apply straight away and are saved for next time.
 

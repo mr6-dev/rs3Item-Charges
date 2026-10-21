@@ -158,10 +158,10 @@ prettyui = { SimpleView = { new = function()
 end } }
 handlers.SettingsLayerReady({ component = { width = 640, height = 340 } })
 local view = prettyui.lastView
--- Three sliders: potion and jewellery thresholds (start at 1), then the
--- potion supplies restock level (starts at 50)
-check("three sliders", #view.sliders .. ":" .. view.sliders[1].value .. "," .. view.sliders[2].value
-      .. "," .. view.sliders[3].value, "3:1,1,50")
+-- Four sliders: potion and jewellery thresholds (start at 1), the cauldron
+-- refill level (starts at 20), then the potion supplies restock level (50)
+check("four sliders", #view.sliders .. ":" .. view.sliders[1].value .. "," .. view.sliders[2].value
+      .. "," .. view.sliders[3].value .. "," .. view.sliders[4].value, "4:1,1,20,50")
 
 -- Potions slider (first) to 2: only the Super restore (2) at x 1134 turns red
 view.sliders[1].onChange(nil, 2)

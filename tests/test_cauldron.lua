@@ -150,7 +150,7 @@ handlers.LocAdded({ config = { id = 138360 } })
 check("panel opens in the house", shown(), "true")
 check("panel title", win().opts.title, "Potion cauldrons")
 check("sized for 2 lines", win().opts.height, "96")
-check("cauldron lines", lines(), "1. Elder Overload Salve: 15 doses | 2. Aggression Potion: 120 doses")
+check("cauldron lines", lines(), "1. Elder Overload Salve: 15 doses  (refill) | 2. Aggression Potion: 120 doses")
 check("column 3 never read", column3Reads, "0")
 
 -- Close it; more cauldrons loading in the same visit don't reopen it
@@ -166,7 +166,7 @@ handlers.LocAdded({ config = { id = 138359 } })
 check("reopens next visit", shown(), "true")
 cauldronVars[1].value = (182 << 1) | 1 | (14 << 13)
 handlers.VarTransmit({ var = cauldronVars[1] })
-check("updates live", lines(), "1. Elder Overload Salve: 14 doses | 2. Aggression Potion: 120 doses")
+check("updates live", lines(), "1. Elder Overload Salve: 14 doses  (refill) | 2. Aggression Potion: 120 doses")
 
 -- An empty built cauldron, a single dose, and an unknown potion ID
 cauldronVars[3].value = 1                               -- built, empty
@@ -174,8 +174,8 @@ cauldronVars[4].value = (182 << 1) | 1 | (1 << 13)      -- 1 dose
 cauldronVars[5].value = (4000 << 1) | 1 | (50 << 13)    -- ID not in the table
 handlers.VarTransmit({ var = cauldronVars[3] })
 check("empty, singular, unknown", lines(),
-      "1. Elder Overload Salve: 14 doses | 2. Aggression Potion: 120 doses | 3. Empty | "
-      .. "4. Elder Overload Salve: 1 dose | 5. Unknown potion (4000): 50 doses")
+      "1. Elder Overload Salve: 14 doses  (refill) | 2. Aggression Potion: 120 doses | 3. Empty  (refill) | "
+      .. "4. Elder Overload Salve: 1 dose  (refill) | 5. Unknown potion (4000): 50 doses")
 
 check("rebuilt taller for 5 lines", win().opts.height, "174")
 
@@ -227,8 +227,8 @@ handlers.ServerLogic()
 check("new cauldron found on the next tick", #windows, tostring(before + 1))
 check("rebuilt window still open", shown(), "true")
 check("new cauldron listed", lines(),
-      "1. Elder Overload Salve: 14 doses | 2. Aggression Potion: 120 doses | 3. Empty | "
-      .. "4. Elder Overload Salve: 1 dose | 5. Unknown potion (4000): 50 doses")
+      "1. Elder Overload Salve: 14 doses  (refill) | 2. Aggression Potion: 120 doses | 3. Empty  (refill) | "
+      .. "4. Elder Overload Salve: 1 dose  (refill) | 5. Unknown potion (4000): 50 doses")
 
 -- Nothing changed: no rebuild
 handlers.ServerLogic()
@@ -294,6 +294,19 @@ cauldronVars[2].value = (146 << 1) | 1 | (99 << 13)    -- arrives as the house l
 handlers.ServerLogic()
 check("no learning while loading", saved.cauldron_map["0:23:7"], "nil")
 check("matches kept between visits", labelAt(22 * 50) .. labelAt(21 * 50), "43")
+
+-- Refill colour: cauldron 3 is empty (at or below the default 20), so its
+-- number is red; cauldron 4 has 106 doses, so it stays yellow
+local function labelColourAt(x)
+    for _, t in ipairs(texts) do
+        if t.posX == x - 20 and not t.hidden and t.isShadowed ~= nil then
+            return string.format("%.2f,%.2f,%.2f", t.colour.r, t.colour.g, t.colour.b)
+        end
+    end
+    return "none"
+end
+check("empty cauldron's number in refill colour", labelColourAt(21 * 50), "1.00,0.25,0.25")
+check("full cauldron's number in normal colour", labelColourAt(22 * 50), "1.00,1.00,0.00")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()
