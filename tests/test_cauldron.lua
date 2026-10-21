@@ -46,7 +46,7 @@ local houseLocs = {
 }
 LocList = { ByConfigID = function(locID) return houseLocs[locID] or {} end }
 ScreenConvert = { CoordGridToScreen = function(c) return { x = c.localX * 50, y = 300 } end }
-local saved = {}
+local saved = { cauldron_labels = "number" }
 PersistentDB = {}
 function PersistentDB:Get(k) return saved[k] end
 function PersistentDB:Set(k, v) saved[k] = v; return true end
@@ -319,29 +319,29 @@ local function labelColourAt(x)
 end
 check("empty cauldron's number in refill colour", labelColourAt(21 * 50), "1.00,0.25,0.25")
 check("full cauldron's number in normal colour", labelColourAt(22 * 50), "1.00,1.00,0.00")
--- Potion icons: cauldron 4 (106 doses of potion 182) shows item 50182 centred
--- over it, with its number moved under the icon; cauldron 3 is empty, so it
--- has no icon and its number stays on the spot
+-- Potion icons (switched on in the settings; the tests above use numbers):
+-- cauldron 4 (106 doses of potion 182) shows item 50182 centred over it, with
+-- no number; cauldron 3 is empty, so it has no icon and keeps its number
 local function iconAt(x)
     for _, s in ipairs(sprites) do
         if s.posX == x - 18 and not s.hidden then return tostring(s.item) end
     end
     return "none"
 end
-check("icon over the salve cauldron", iconAt(22 * 50), "50182")
-check("no icon over the empty cauldron", iconAt(21 * 50), "none")
-check("number under the icon", (function()
-    for _, t in ipairs(texts) do
-        if t.posX == 22 * 50 - 20 and not t.hidden and t.isShadowed ~= nil then return t.posY end
-    end
-end)(), "316")
-
--- "Number only" in the settings hides the icons on the next tick
 handlers.SettingsLayerReady({ component = { width = 640, height = 340 } })
-prettyui.lastView.radios.icon.onChange(nil, "number")
-check("label mode saved", saved.cauldron_labels, "number")
+prettyui.lastView.radios.icon.onChange(nil, "icon")
+check("label mode saved", saved.cauldron_labels, "icon")
 handlers.ServerLogic()
-check("icons hidden in number-only mode", iconAt(22 * 50), "none")
+check("icon over the salve cauldron", iconAt(22 * 50), "50182")
+check("no number with the icon", labelAt(22 * 50), "")
+check("no icon over the empty cauldron", iconAt(21 * 50), "none")
+check("empty cauldron keeps its number", labelAt(21 * 50), "3")
+
+-- Back to numbers: the icons hide on the next tick
+prettyui.lastView.radios.icon.onChange(nil, "number")
+handlers.ServerLogic()
+check("icons hidden in number mode", iconAt(22 * 50), "none")
+check("number back", labelAt(22 * 50), "4")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()

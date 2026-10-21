@@ -1045,8 +1045,10 @@ local function readCauldrons()
 end
 
 -- The struct also holds each dose's item (params POTIONDOSES_4 down to _1;
--- some potions only have a 1-dose item), used to draw the potion's icon.
-local POTION_DOSE_PARAMS = { "POTIONDOSES_4", "POTIONDOSES_3", "POTIONDOSES_2", "POTIONDOSES_1" }
+-- some potions only have a 1-dose item, and some only come in flasks), used
+-- to draw the potion's icon. Missing params are skipped.
+local POTION_DOSE_PARAMS = { "POTIONDOSES_4", "POTIONDOSES_3", "POTIONDOSES_2", "POTIONDOSES_1",
+    "BIGPOT_DOSES6", "BIGPOT_DOSES5", "BIGPOT_DOSES4", "BIGPOT_DOSES3", "BIGPOT_DOSES2", "BIGPOT_DOSES1" }
 
 -- Returns potion ID -> name, and potion ID -> item ID.
 local function buildPotionNames()
@@ -1272,8 +1274,8 @@ local function learnCauldron(number)
     saveSetting("cauldron_map", cauldronMap)
 end
 
--- The icon (when shown) is centred on the spot above the cauldron, with the
--- number just under it; without an icon the number sits on that spot.
+-- The icon or the number (whichever is shown) is centred on the spot above
+-- the cauldron.
 local function placeCauldronLabels()
     for key, label in pairs(cauldronLabels) do
         local loc = cauldronLocs[key]
@@ -1288,7 +1290,6 @@ local function placeCauldronLabels()
             if label.showIcon and label.icon ~= nil then
                 label.icon:SetPos(x - LABEL.ICON_W // 2, y - LABEL.ICON_H // 2)
                 label.icon.hidden = false
-                y = y + (LABEL.ICON_H + LABEL.H) // 2
             elseif label.icon ~= nil then
                 label.icon.hidden = true
             end
@@ -1335,13 +1336,18 @@ local function cauldronLabelTick()
         if doses ~= nil and doses <= refillAt then
             colour = colours.cauldron_low
         end
-        setOutlinedContent(label, number and tostring(number) or "?", toVector4(colour))
-        -- An icon only for a matched cauldron with a potion in it.
+        -- An icon only for a matched cauldron with a potion in it. The number
+        -- shows instead when there's no icon, and "?" until it's matched.
         local item = nil
         if LABEL.mode == "icon" and doses ~= nil and doses > 0 then
             item = potionItems[(raw >> 1) & 0xFFF]
         end
         pcall(setLabelIcon, label, item)
+        local text = "?"
+        if number ~= nil then
+            text = (label.showIcon and label.icon ~= nil) and "" or tostring(number)
+        end
+        setOutlinedContent(label, text, toVector4(colour))
     end
     placeCauldronLabels()
 end
@@ -1774,8 +1780,8 @@ local function buildSettingsPage(parent)
     end)
     add.button("Show cauldron panel now", showCauldronWindow)
     add.radio("Over each cauldron:", {
-        { text = "Potion icon and number", value = "icon" },
-        { text = "Number only", value = "number" },
+        { text = "Potion icon", value = "icon" },
+        { text = "Number", value = "number" },
     }, LABEL.mode, function(value)
         if not LABEL_MODES[value] then return end
         LABEL.mode = value

@@ -28,7 +28,7 @@ colour. What counts as low is set separately for potions and jewellery (1 to 5).
 
 - **Potion cauldrons**: when you enter your house, a panel lists each potion
   cauldron by number, its potion and the doses left, updating as you drink
-  or fill them. Each cauldron in the house shows its potion's icon and its number above it. The
+  or fill them. Each cauldron in the house shows its potion's icon above it, or its number if you prefer. The
   plugin learns which is which the first time you use each one (until then
   it shows ?). The panel remembers where you last moved it.
 - **Potion supplies**: a restock list adding up the doses of each potion in
