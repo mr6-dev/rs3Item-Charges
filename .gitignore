@@ -1,0 +1,3 @@
+# Release zips are built for mod.io uploads and attached to GitHub releases, not stored in the repo
+*.zip
+

@@ -1,0 +1,9 @@
+{
+    "name": "Item Charges",
+    "version": "1.2.0",
+    "contactEmailAddress": "opwanderer10@gmail.com",
+    "hasSettingsIcon": true,
+    "requiredDependencies": {
+        "prettyui": 6398181
+    }
+}
