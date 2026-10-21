@@ -149,7 +149,7 @@ check("other scenery ignored", #windows, "0")
 handlers.LocAdded({ config = { id = 138360 } })
 check("panel opens in the house", shown(), "true")
 check("panel title", win().opts.title, "Potion cauldrons")
-check("sized for 2 lines", win().opts.height, "96")
+check("sized for 2 lines", win().opts.height, "108")
 check("cauldron lines", lines(), "1. Elder Overload Salve: 15 doses  (refill) | 2. Aggression Potion: 120 doses")
 check("column 3 never read", column3Reads, "0")
 
@@ -177,7 +177,7 @@ check("empty, singular, unknown", lines(),
       "1. Elder Overload Salve: 14 doses  (refill) | 2. Aggression Potion: 120 doses | 3. Empty  (refill) | "
       .. "4. Elder Overload Salve: 1 dose  (refill) | 5. Unknown potion (4000): 50 doses")
 
-check("rebuilt taller for 5 lines", win().opts.height, "174")
+check("rebuilt taller for 5 lines", win().opts.height, "192")
 
 -- Closed by the player, then a cauldron changes: it must not reopen
 win():Close()

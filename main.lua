@@ -120,6 +120,7 @@ local DEFAULT_COLOURS = {
     outline        = { r = 0,   g = 0,   b = 0 },   -- black
     invention      = { r = 255, g = 255, b = 0 },
     invention_low  = { r = 255, g = 64,  b = 64 },
+    cauldron       = { r = 255, g = 255, b = 0 },   -- numbers over cauldrons
     cauldron_low   = { r = 255, g = 64,  b = 64 },
 }
 
@@ -909,6 +910,11 @@ refresh()
 -- read; other columns hold value types plugins can't receive.
 
 local CAULDRON_COUNT = 5
+-- Wide enough for "1. Elder overload salve: 107 doses  (refill)", and tall
+-- enough that five lines fit without the last one being clipped.
+local CAULDRON_WINDOW_WIDTH = 400
+local CAULDRON_WINDOW_PADDING = 52
+local CAULDRON_LINE_HEIGHT = 28
 local CAULDRON_LOC_IDS = { [138359] = true, [138360] = true, [138361] = true }
 
 -- Entering the house: the house is a 256x256 instance (RegionCreated), and its
@@ -1016,7 +1022,8 @@ local function buildCauldronWindow(lineCount)
     end
     cauldronWindow = prettyui.Window.new(parentLayer, {
         title = "Potion cauldrons",
-        x = cauldronX, y = cauldronY, width = 300, height = 44 + lineCount * 26,
+        x = cauldronX, y = cauldronY, width = CAULDRON_WINDOW_WIDTH,
+        height = CAULDRON_WINDOW_PADDING + lineCount * CAULDRON_LINE_HEIGHT,
         onClose = function() cauldronWindowOpen = false end,
     })
     cauldronOffset = nil
@@ -1263,7 +1270,7 @@ local function cauldronLabelTick()
             cauldronLabels[key] = newOutlinedText(parentLayer, LABEL_W, LABEL_H)
         end
         local number = cauldronMap[key]
-        local colour = colours.normal
+        local colour = colours.cauldron
         local raw = number and lastSlotValues[number]
         if raw ~= nil and (raw >> 13) & 0xFFF <= refillAt then
             colour = colours.cauldron_low
@@ -1700,6 +1707,16 @@ local function buildSettingsPage(parent)
             end,
         })
     end
+    settingsView:AddText("Number over each cauldron")
+    settingsView:AddColourPicker({
+        value = toHex(colours.cauldron),
+        buttonSize = 32,
+        windowTitle = "Number over each cauldron",
+        onChange = function(picker, colour)
+            colours.cauldron = fromHex(colour)
+            saveSetting("colour_cauldron", colours.cauldron)
+        end,
+    })
     settingsView:AddText("Cauldron refill colour (panel and numbers over cauldrons)")
     settingsView:AddColourPicker({
         value = toHex(colours.cauldron_low),

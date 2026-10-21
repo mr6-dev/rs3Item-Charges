@@ -73,6 +73,8 @@ Manage tab.
 - **Cauldron refill level** / **Cauldron refill colour**: cauldrons at or below
   this many doses (0 to 500, default 20) are marked "(refill)" in the panel,
   and their line and number over the cauldron use the refill colour.
+- **Number over each cauldron**: the colour of the numbers over cauldrons that
+  don't need a refill, separate from the item number colours.
 
 Changes apply straight away and are saved for next time.
 
