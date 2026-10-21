@@ -2,8 +2,8 @@
 --
 -- Shows remaining charges and doses as a small number on item icons in the
 -- backpack, worn equipment, bank, beast of burden and action bars, Invention
--- charge info in the worn equipment tab, and a panel listing the potions in
--- your house's potion cauldrons.
+-- charge info in the worn equipment tab, a panel listing the potions in
+-- your house's potion cauldrons, and a potion supplies (restock) panel.
 --
 -- Charges are read from item names: "Games necklace (8)" has 8 charges, and
 -- using one swaps it for "Games necklace (7)". Potions work the same way.
@@ -133,6 +133,14 @@ local lowThresholds = {
     potion    = loadSetting("low_threshold_potion", isThreshold, 1),
     jewellery = loadSetting("low_threshold_jewellery", isThreshold, 1),
 }
+
+-- The potion supplies panel marks a potion for restocking at or below this
+-- many doses in total.
+local RESTOCK_MAX = 500
+local RESTOCK_STEP = 10
+local restockAt = loadSetting("supplies_restock_at", function(v)
+    return math.type(v) == "integer" and v >= 0 and v <= RESTOCK_MAX
+end, 50)
 
 local INVENTION_LINES = {
     { value = "time",   key = "show_invention",        text = "Show time left" },
@@ -963,6 +971,146 @@ Event.VarTransmit.Subscribe("itemChargesCauldronVars", function(e)
 end)
 
 -------------------------------------------------------------------------------
+-- Potion supplies
+-------------------------------------------------------------------------------
+-- A restock list: the total doses of each potion across the backpack, beast
+-- of burden and bank, lowest first. The bank's contents are only sent while
+-- it's open, so its totals are saved and reused until the next visit.
+-- Potions are grouped by name without the dose, so "Super restore (4)" and
+-- "Super restore (2)" add together, but flasks are counted separately.
+
+local SUPPLY_LIVE_INVENTORIES = { "INV", "LORE_BOB" }
+local SUPPLIES_MAX_LINES = 15
+
+local savedBankDoses = loadSetting("supplies_bank_doses",
+    function(v) return type(v) == "table" end, {})
+local suppliesWindow = nil
+local supplyRows = {}
+local suppliesWindowOpen = false
+
+-- Adds each potion's doses in one inventory to totals (a stack of 10
+-- "Super restore (4)" adds 40). Returns how many filled slots it saw, so an
+-- unavailable or empty bank can be told apart from a bank with no potions.
+local function addPotionDoses(invName, totals)
+    local inv = findInventory(invName)
+    if inv == nil then return 0 end
+    local filled = 0
+    for slotIndex = 1, inv.slotCount do
+        local slot = inv:GetSlot(slotIndex)
+        if slot ~= nil and slot.obj ~= nil and slot.obj.name ~= "" and (slot.count or 0) > 0 then
+            filled = filled + 1
+            local baseName, doses = parseCharges(slot.obj.name)
+            if baseName ~= nil and isPotion(slot.obj, baseName) then
+                totals[baseName] = (totals[baseName] or 0) + doses * slot.count
+            end
+        end
+    end
+    return filled
+end
+
+local function sameTotals(a, b)
+    for name, doses in pairs(a) do
+        if b[name] ~= doses then return false end
+    end
+    for name in pairs(b) do
+        if a[name] == nil then return false end
+    end
+    return true
+end
+
+-- Saves the bank's totals while it's open, only when they've changed.
+local function saveBankIfOpen()
+    local bank = {}
+    if addPotionDoses("BANK", bank) > 0 and not sameTotals(bank, savedBankDoses) then
+        savedBankDoses = bank
+        saveSetting("supplies_bank_doses", bank)
+    end
+end
+
+local function supplyLines()
+    local totals = {}
+    for name, doses in pairs(savedBankDoses) do
+        totals[name] = doses
+    end
+    for _, invName in ipairs(SUPPLY_LIVE_INVENTORIES) do
+        addPotionDoses(invName, totals)
+    end
+
+    local list = {}
+    for name, doses in pairs(totals) do
+        list[#list + 1] = { name = name, doses = doses }
+    end
+    table.sort(list, function(a, b)
+        if a.doses ~= b.doses then return a.doses < b.doses end
+        return a.name < b.name
+    end)
+
+    local lines = {}
+    for i, potion in ipairs(list) do
+        if i > SUPPLIES_MAX_LINES then
+            lines[#lines + 1] = string.format("...and %d more", #list - SUPPLIES_MAX_LINES)
+            break
+        end
+        local restock = potion.doses <= restockAt and "  (restock)" or ""
+        lines[#lines + 1] = string.format("%s: %d dose%s%s", potion.name, potion.doses,
+            potion.doses == 1 and "" or "s", restock)
+    end
+    if #lines == 0 then
+        lines[1] = "No potions found. Open your bank once to include it."
+    end
+    return lines
+end
+
+-- Same approach as the cauldron window: sized to its lines, rebuilt when the
+-- number of lines changes.
+local function buildSuppliesWindow(lineCount)
+    if suppliesWindow ~= nil then
+        pcall(function() suppliesWindow:Destroy() end)
+    end
+    suppliesWindow = prettyui.Window.new(parentLayer, {
+        title = "Potion supplies",
+        x = 360, y = 200, width = 340, height = 44 + lineCount * 26,
+        onClose = function() suppliesWindowOpen = false end,
+    })
+    supplyRows = {}
+    for i = 1, lineCount do
+        supplyRows[i] = suppliesWindow:AddText("")
+    end
+end
+
+local function updateSuppliesWindow()
+    if suppliesWindow == nil or not suppliesWindowOpen then return end
+    local lines = supplyLines()
+    if #lines ~= #supplyRows then
+        buildSuppliesWindow(#lines)
+        suppliesWindow:Show()
+    end
+    for i, line in ipairs(lines) do
+        supplyRows[i].content = line
+    end
+end
+
+local function showSuppliesWindow()
+    if parentLayer == nil or prettyui == nil then return end
+    if suppliesWindow == nil then
+        buildSuppliesWindow(#supplyLines())
+    end
+    suppliesWindowOpen = true
+    updateSuppliesWindow()
+    suppliesWindow:Show()
+end
+
+local function onSuppliesChanged()
+    pcall(function()
+        saveBankIfOpen()
+        updateSuppliesWindow()
+    end)
+end
+Event.InventoryAdded.Subscribe("itemChargesSuppliesAdded", onSuppliesChanged)
+Event.InventoryUpdated.Subscribe("itemChargesSuppliesUpdated", onSuppliesChanged)
+Event.InventoryRemoved.Subscribe("itemChargesSuppliesRemoved", onSuppliesChanged)
+
+-------------------------------------------------------------------------------
 -- Settings page (built with PrettyUI)
 -------------------------------------------------------------------------------
 
@@ -1004,6 +1152,10 @@ local function lowThresholdText(setting)
     local label = setting.kind == "potion" and "Potions" or "Jewellery"
     return string.format("%s: low charge colour at %d %s or fewer", label,
         lowThresholds[setting.kind], setting.unit)
+end
+
+local function restockText()
+    return string.format("Mark for restock at %d doses or fewer", restockAt)
 end
 
 local function buildSettingsPage(parent)
@@ -1124,6 +1276,31 @@ local function buildSettingsPage(parent)
     end
 
     settingsView:AddDivider()
+    settingsView:AddText("Potion supplies (backpack, beast of burden and bank):")
+    if settingsView.AddSlider ~= nil then
+        local label = settingsView:AddText(restockText())
+        settingsView:AddSlider({
+            min = 0, max = RESTOCK_MAX, step = RESTOCK_STEP, value = restockAt,
+            onChange = function(slider, value)
+                value = math.tointeger(value) or math.floor(value + 0.5)
+                if value < 0 or value > RESTOCK_MAX then return end
+                restockAt = value
+                saveSetting("supplies_restock_at", value)
+                if label ~= nil then
+                    label.content = restockText()
+                end
+                onSuppliesChanged()
+            end,
+        })
+    end
+    if settingsView.AddFancyButton ~= nil then
+        settingsView:AddFancyButton("Show potion supplies", function()
+            local ok, err = pcall(showSuppliesWindow)
+            if not ok then print("Item Charges: supplies panel error: " .. tostring(err)) end
+        end)
+    end
+
+    settingsView:AddDivider()
     settingsView:AddText("Settings page built with PrettyUI by rsnJ3 (prettyui.j3.gg).")
 end
 
@@ -1143,5 +1320,9 @@ function PluginShutdown()
     if cauldronWindow ~= nil then
         pcall(function() cauldronWindow:Destroy() end)
         cauldronWindow = nil
+    end
+    if suppliesWindow ~= nil then
+        pcall(function() suppliesWindow:Destroy() end)
+        suppliesWindow = nil
     end
 end
