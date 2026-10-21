@@ -61,13 +61,16 @@ local INVENTORY_NAMES = { "INV", "WORN", "BANK", "LORE_BOB" }
 -- own panel. The bank scrolls inside "clip": icon positions don't include the
 -- scroll offset, so it's subtracted, and numbers outside the clip are hidden.
 --
+-- inBank marks the bank window's own layers; numbers anywhere else are hidden
+-- where the bank window covers them.
+--
 -- Action bars ("bar") aren't tied to an inventory: each of their 14 slots is
 -- a separate component that shows whichever item was put there.
 local ICON_LAYERS = {
     { inv = "INV",  layer = "TOPLEVEL_V2_INVENTORY__ITEM_LAYER" },
-    { inv = "INV",  layer = "BANK__INVENTORY_SLOTS" },
+    { inv = "INV",  layer = "BANK__INVENTORY_SLOTS", inBank = true },
     { inv = "WORN", layer = "TOPLEVEL_V2_WORN__ITEM_LAYER" },
-    { inv = "BANK", layer = "BANK__BANK_INV", clip = "BANK__BANK_ITEMS_CONTAINER" },
+    { inv = "BANK", layer = "BANK__BANK_INV", clip = "BANK__BANK_ITEMS_CONTAINER", inBank = true },
     -- Beast of burden: the familiar ribbon tab, the bank's familiar panel, and
     -- the familiar storage window (which also shows the backpack). Where the
     -- icon layer is uncertain, candidates are listed and the first visible one
@@ -75,7 +78,7 @@ local ICON_LAYERS = {
     { inv = "LORE_BOB", layers = {
         "LORE_STATS_SIDE__INVENTORY_INVLAYER", "LORE_STATS_SIDE__INVENTORY_SLOTLAYER",
     }, clip = "LORE_STATS_SIDE__INVENTORY_SCROLL_LAYER" },
-    { inv = "LORE_BOB", layer = "BANK__BOB_SLOTS", clip = "BANK__BOB_SCROLLING" },
+    { inv = "LORE_BOB", layer = "BANK__BOB_SLOTS", clip = "BANK__BOB_SCROLLING", inBank = true },
     { inv = "LORE_BOB", layers = {
         "LORE_BANK__LORE_BOB_INV_SLOTLAYER", "LORE_BANK__LORE_BOB_LAYER",
         "LORE_BANK__BOB_ICON_LAYER", "LORE_BANK__LORE_BOB_INV_OPLAYER",
@@ -478,10 +481,13 @@ local placements = {}
 
 -- objID: the item the component was showing at the last full render, if known.
 -- checkQuantity: whether a quantity of 0 (a bank placeholder) hides the number.
-local function addPlacement(group, comp, offX, offY, w, h, clip, objID, checkQuantity)
+-- inBank: true for numbers drawn inside the bank window itself. All others
+-- are hidden where the bank window covers them, since the plugin layer is
+-- drawn on top of every game interface.
+local function addPlacement(group, comp, offX, offY, w, h, clip, objID, checkQuantity, inBank)
     placements[#placements + 1] = {
         group = group, comp = comp, offX = offX, offY = offY, w = w, h = h,
-        clip = clip, objID = objID, checkQuantity = checkQuantity,
+        clip = clip, objID = objID, checkQuantity = checkQuantity, inBank = inBank,
     }
 end
 
@@ -492,10 +498,46 @@ local function insideComponent(comp, x, y, w, h)
         and x + w <= pos.x + comp.width and y + h <= pos.y + comp.height
 end
 
+-- The bank window's on-screen rectangle, or nil if the bank is closed. There's
+-- no known component for the whole window, so it's worked out from its item
+-- area and backpack panel plus the frame around them (measured from a
+-- screenshot): about 16 pixels at the sides, 95 above (title and tabs) and
+-- 60 below (search bar).
+-- The two components are looked up on each full render (findBankComponents)
+-- rather than 50 times a second; reposition() just reads their positions.
+local BANK_FRAME = { left = 16, top = 95, right = 16, bottom = 60 }
+local bankItems, bankBackpack = nil, nil
+
+local function findBankComponents()
+    bankItems = findComponentByName("BANK__BANK_ITEMS_CONTAINER")
+    bankBackpack = findComponentByName("BANK__INVENTORY_SLOTS")
+end
+
+local function bankRect()
+    local items, backpack = bankItems, bankBackpack
+    if items == nil or not items.visibleGlobal then return nil end
+    local right = items.xyGlobal.x + items.width
+    if backpack ~= nil and backpack.visibleGlobal then
+        right = math.max(right, backpack.xyGlobal.x + backpack.width)
+    end
+    return {
+        x1 = items.xyGlobal.x - BANK_FRAME.left,
+        y1 = items.xyGlobal.y - BANK_FRAME.top,
+        x2 = right + BANK_FRAME.right,
+        y2 = items.xyGlobal.y + items.height + BANK_FRAME.bottom,
+    }
+end
+
+-- True if a w x h box at (x, y) overlaps the rectangle at all.
+local function overlaps(rect, x, y, w, h)
+    return x < rect.x2 and x + w > rect.x1 and y < rect.y2 and y + h > rect.y1
+end
+
 -- Returns true if an icon now shows a different item (or became a bank
 -- placeholder), meaning a full render is needed.
 local function reposition()
     local origin = parentLayer.xyGlobal
+    local bank = bankRect()
     for _, p in ipairs(placements) do
         if p.objID ~= nil and (iconObjectID(p.comp) ~= p.objID
             or (p.checkQuantity and iconQuantity(p.comp) == 0)) then
@@ -510,6 +552,9 @@ local function reposition()
                 x = x - (p.clip.scrollX or 0)
                 y = y - (p.clip.scrollY or 0)
                 show = insideComponent(p.clip, x, y, p.w, p.h)
+            end
+            if show and bank ~= nil and not p.inBank then
+                show = not overlaps(bank, x, y, p.w, p.h)
             end
         end
         if not show then
@@ -621,6 +666,7 @@ local function renderChargeNumbers(items)
             end
         end
         if icons ~= nil then
+            local inBank = entry.inBank == true
             for slotIndex, icon in pairs(icons) do
                 local objID = reportsItems and iconObjectID(icon) or nil
                 local item = nil
@@ -643,7 +689,7 @@ local function renderChargeNumbers(items)
                     setOutlinedContent(group, shortNumber(item.charges), toVector4(colour))
                     -- Bottom-right of the icon, clear of the game's stack count.
                     addPlacement(group, icon, icon.width - OVERLAY_W, icon.height - OVERLAY_H,
-                        OVERLAY_W, OVERLAY_H, clip, objID, checkQuantity)
+                        OVERLAY_W, OVERLAY_H, clip, objID, checkQuantity, inBank)
                 end
             end
         end
@@ -763,6 +809,7 @@ local function render()
         hideOutlinedText(group)
     end
     placements = {}
+    findBankComponents()
     renderChargeNumbers(lastItems)
     renderInvention()
     reposition()

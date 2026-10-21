@@ -31,7 +31,7 @@ local function makeLayer(count, posFn)
         local x, y = posFn(slot)
         icons[#icons + 1] = comp({ dynamicID = slot, xyGlobal = { x = x, y = y } })
     end
-    local layer = comp()
+    local layer = comp({ icons = icons })
     function layer:IterateDynamicComponents(cb)
         for _, ic in ipairs(icons) do if cb(ic, true) then return end end
     end
@@ -156,10 +156,19 @@ bankCounts[5] = 0
 handlers.InventoryUpdated()
 check("placeholder has no number", visible(), "3@814,456 5@1361,386 5@1704,736")
 
--- Close the bank: its layers go invisible, only the normal backpack remains
+-- The normal backpack is dragged under the bank window (which spans about
+-- x 784-976, y 305-540 here): its number hides instead of drawing on top,
+-- while the bank's own numbers stay.
+local necklaceIcon = backpackLayer.icons[2]
+necklaceIcon.xyGlobal = { x = 850, y = 420 }
+handlers.Logic()
+check("hidden under the bank", visible(), "3@814,456 5@1361,386")
+
+-- Close the bank: its layers go invisible, and the backpack number returns
 bankLayer.visibleGlobal = false
 bankBackpack.visibleGlobal = false
+bankClip.visibleGlobal = false
 handlers.ServerLogic()
-check("bank closed", visible(), "5@1704,736")
+check("bank closed", visible(), "5@864,436")
 
 print(string.format("\n%d passed, %d failed", pass, fail))
