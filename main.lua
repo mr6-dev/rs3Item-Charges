@@ -921,6 +921,10 @@ local cauldronWindowOpen = false
 local cauldronShownThisVisit = false
 local cauldronOffset = nil     -- viewport screen position minus the window's x, y
 local lastCauldronValues = nil -- raw cauldron variables at the last update
+local inHouse = false
+local cauldronLabels = {}      -- spot -> outlined number over a cauldron
+local lastSlotValues = {}      -- cauldron number -> raw variable at the last tick
+local houseTicks = 0           -- game ticks since entering the house
 local inLargeInstance = false
 local houseWallsSeen = 0
 
@@ -929,7 +933,7 @@ local function readCauldrons()
     for n = 1, CAULDRON_COUNT do
         local raw = readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
         if raw ~= nil and raw & 1 == 1 then
-            list[#list + 1] = { potionID = (raw >> 1) & 0xFFF, doses = (raw >> 13) & 0xFFF }
+            list[#list + 1] = { number = n, potionID = (raw >> 1) & 0xFFF, doses = (raw >> 13) & 0xFFF }
         end
     end
     return list
@@ -974,12 +978,14 @@ local function cauldronLines()
         potionNames = buildPotionNames()
     end
     local lines = {}
+    -- Numbered by the game's cauldron number, which the labels over the
+    -- cauldrons in the house also show.
     for _, c in ipairs(readCauldrons()) do
         if c.doses == 0 then
-            lines[#lines + 1] = "Empty"
+            lines[#lines + 1] = c.number .. ". Empty"
         else
             local name = potionNames[c.potionID] or ("Unknown potion (" .. c.potionID .. ")")
-            lines[#lines + 1] = string.format("%s: %d dose%s", name, c.doses, c.doses == 1 and "" or "s")
+            lines[#lines + 1] = string.format("%d. %s: %d dose%s", c.number, name, c.doses, c.doses == 1 and "" or "s")
         end
     end
     if #lines == 0 then
@@ -1067,6 +1073,7 @@ local function closeCauldronWindow()
 end
 
 local function enteredHouse()
+    inHouse = true
     if cauldronMode ~= "house" or cauldronShownThisVisit then return end
     cauldronShownThisVisit = true
     pcall(showCauldronWindow)
@@ -1090,6 +1097,12 @@ local function changedArea(isLargeInstance)
     houseWallsSeen = 0
     cauldronShownThisVisit = false
     closeCauldronWindow()
+    inHouse = false
+    houseTicks = 0
+    lastSlotValues = {}
+    for _, label in pairs(cauldronLabels) do
+        pcall(hideOutlinedText, label)
+    end
 end
 Event.WorldCreated.Subscribe("itemChargesCauldronWorld", function()
     pcall(changedArea, false)
@@ -1123,6 +1136,124 @@ Event.ServerLogic.Subscribe("itemChargesCauldronTick", function()
             updateCauldronWindow()
         end
     end)
+end)
+
+-------------------------------------------------------------------------------
+-- Cauldron number labels
+-------------------------------------------------------------------------------
+-- A number over each cauldron in the house, matching the panel's numbering.
+-- The game doesn't say which cauldron object is which number, so the plugin
+-- learns it: when one cauldron's variable changes (drinking, filling or
+-- building), the cauldron the player is standing next to is that number.
+-- Matches are saved by the cauldron's spot in the house, so they're kept
+-- between visits. Unmatched cauldrons show "?".
+
+local LABEL_RANGE_SQ = 5       -- squared tiles: next to it, including diagonally
+local LABEL_HEIGHT = 700       -- fine units above the tile (a tile is 512)
+local LABEL_W, LABEL_H = 40, 24
+local LEARN_AFTER_TICKS = 5    -- ignore the variables arriving as the house loads
+
+local function isMap(v) return type(v) == "table" end
+local cauldronMap = loadSetting("cauldron_map", isMap, {})  -- spot -> number
+local cauldronLocs = {}        -- spot -> cauldron object, refreshed every tick
+
+-- A cauldron's spot: its tile within the house, which stays the same between
+-- visits even if the house instance is placed elsewhere in the world.
+local function spotKey(loc)
+    local c = loc.coordGrid
+    return c.level .. ":" .. c.localX .. ":" .. c.localZ
+end
+
+local function findCauldronLocs()
+    local found = {}
+    for locID in pairs(CAULDRON_LOC_IDS) do
+        local ok, locs = pcall(function() return LocList.ByConfigID(locID) end)
+        if ok and locs ~= nil then
+            for _, loc in ipairs(locs) do
+                local okKey, key = pcall(spotKey, loc)
+                if okKey then found[key] = loc end
+            end
+        end
+    end
+    return found
+end
+
+-- The one cauldron closest to the player, if it's next to them. Nil when two
+-- are equally close, since then it can't be told which one was used.
+local function cauldronNextToPlayer()
+    local p = Player.GetEntity().coordGrid
+    local bestKey, bestDist, tied = nil, LABEL_RANGE_SQ + 1, false
+    for key, loc in pairs(cauldronLocs) do
+        local c = loc.coordGrid
+        if c.level == p.level then
+            local d = (c.x - p.x) ^ 2 + (c.z - p.z) ^ 2
+            if d < bestDist then
+                bestKey, bestDist, tied = key, d, false
+            elseif d == bestDist then
+                tied = true
+            end
+        end
+    end
+    if tied then return nil end
+    return bestKey
+end
+
+local function learnCauldron(number)
+    local key = cauldronNextToPlayer()
+    if key == nil or cauldronMap[key] == number then return end
+    for k, n in pairs(cauldronMap) do
+        if n == number then cauldronMap[k] = nil end
+    end
+    cauldronMap[key] = number
+    saveSetting("cauldron_map", cauldronMap)
+end
+
+local function placeCauldronLabels()
+    for key, label in pairs(cauldronLabels) do
+        local loc = cauldronLocs[key]
+        local pos = nil
+        if loc ~= nil then
+            pcall(function() pos = ScreenConvert.CoordGridToScreen(loc.coordGrid, LABEL_HEIGHT) end)
+        end
+        if pos == nil then
+            hideOutlinedText(label)
+        else
+            placeOutlinedText(label, math.floor(pos.x - LABEL_W / 2), math.floor(pos.y - LABEL_H / 2))
+        end
+    end
+end
+
+local function cauldronLabelTick()
+    houseTicks = houseTicks + 1
+    cauldronLocs = findCauldronLocs()
+
+    for n = 1, CAULDRON_COUNT do
+        local raw = readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n)
+        if houseTicks > LEARN_AFTER_TICKS and lastSlotValues[n] ~= nil and raw ~= lastSlotValues[n] then
+            pcall(learnCauldron, n)
+        end
+        lastSlotValues[n] = raw
+    end
+
+    for key in pairs(cauldronLocs) do
+        if cauldronLabels[key] == nil then
+            cauldronLabels[key] = newOutlinedText(parentLayer, LABEL_W, LABEL_H)
+        end
+        local number = cauldronMap[key]
+        setOutlinedContent(cauldronLabels[key], number and tostring(number) or "?", toVector4(colours.normal))
+    end
+    placeCauldronLabels()
+end
+
+Event.ServerLogic.Subscribe("itemChargesCauldronLabels", function()
+    if not inHouse or parentLayer == nil then return end
+    pcall(cauldronLabelTick)
+end)
+
+-- Labels follow the camera smoothly between game ticks.
+Event.Logic.Subscribe("itemChargesCauldronLabelsMove", function()
+    if not inHouse then return end
+    pcall(placeCauldronLabels)
 end)
 
 -------------------------------------------------------------------------------
@@ -1581,6 +1712,9 @@ function PluginShutdown()
     if cauldronWindow ~= nil then
         pcall(function() cauldronWindow:Destroy() end)
         cauldronWindow = nil
+    end
+    for _, label in pairs(cauldronLabels) do
+        pcall(hideOutlinedText, label)
     end
     if suppliesWindow ~= nil then
         pcall(function() suppliesWindow:Destroy() end)

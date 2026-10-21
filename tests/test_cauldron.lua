@@ -12,18 +12,33 @@ local function comp(extra)
     return c
 end
 local pluginLayer = comp({ visibleGlobal = true })
+local texts = {}   -- every text the plugin creates
 Vector4 = { new = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end }
 ui = {
     Interfaces = { GetComponent = function(_, name)
         if name == "TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP" then return pluginLayer end
         return comp()
     end },
-    Text = { new = function() return comp() end },
+    Text = { new = function() local t = comp(); texts[#texts + 1] = t; return t end },
     AlignMode = { CENTRE = 0 },
 }
 id = { Component = setmetatable({}, { __index = function(_, k) return k end }), Font = {} }
 config = { Inv = { INV = "INV" } }
-Player = { IsAvailable = function() return true end }
+-- The player and three cauldrons in a row, as seen in-game: Basic, Bubbling
+-- and Arcane at local tiles 21, 22 and 23
+local function tile(x, z) return { level = 0, x = 10000 + x, z = 3600 + z, localX = x, localZ = z } end
+local playerTile = tile(10, 10)
+Player = {
+    IsAvailable = function() return true end,
+    GetEntity = function() return { coordGrid = playerTile } end,
+}
+local houseLocs = {
+    [138359] = { { coordGrid = tile(21, 7) } },
+    [138360] = { { coordGrid = tile(22, 7) } },
+    [138361] = { { coordGrid = tile(23, 7) } },
+}
+LocList = { ByConfigID = function(locID) return houseLocs[locID] or {} end }
+ScreenConvert = { CoordGridToScreen = function(c) return { x = c.localX * 50, y = 300 } end }
 local saved = {}
 PersistentDB = {}
 function PersistentDB:Get(k) return saved[k] end
@@ -135,7 +150,7 @@ handlers.LocAdded({ config = { id = 138360 } })
 check("panel opens in the house", shown(), "true")
 check("panel title", win().opts.title, "Potion cauldrons")
 check("sized for 2 lines", win().opts.height, "96")
-check("cauldron lines", lines(), "Elder Overload Salve: 15 doses | Aggression Potion: 120 doses")
+check("cauldron lines", lines(), "1. Elder Overload Salve: 15 doses | 2. Aggression Potion: 120 doses")
 check("column 3 never read", column3Reads, "0")
 
 -- Close it; more cauldrons loading in the same visit don't reopen it
@@ -151,7 +166,7 @@ handlers.LocAdded({ config = { id = 138359 } })
 check("reopens next visit", shown(), "true")
 cauldronVars[1].value = (182 << 1) | 1 | (14 << 13)
 handlers.VarTransmit({ var = cauldronVars[1] })
-check("updates live", lines(), "Elder Overload Salve: 14 doses | Aggression Potion: 120 doses")
+check("updates live", lines(), "1. Elder Overload Salve: 14 doses | 2. Aggression Potion: 120 doses")
 
 -- An empty built cauldron, a single dose, and an unknown potion ID
 cauldronVars[3].value = 1                               -- built, empty
@@ -159,8 +174,8 @@ cauldronVars[4].value = (182 << 1) | 1 | (1 << 13)      -- 1 dose
 cauldronVars[5].value = (4000 << 1) | 1 | (50 << 13)    -- ID not in the table
 handlers.VarTransmit({ var = cauldronVars[3] })
 check("empty, singular, unknown", lines(),
-      "Elder Overload Salve: 14 doses | Aggression Potion: 120 doses | Empty | "
-      .. "Elder Overload Salve: 1 dose | Unknown potion (4000): 50 doses")
+      "1. Elder Overload Salve: 14 doses | 2. Aggression Potion: 120 doses | 3. Empty | "
+      .. "4. Elder Overload Salve: 1 dose | 5. Unknown potion (4000): 50 doses")
 
 check("rebuilt taller for 5 lines", win().opts.height, "174")
 
@@ -212,8 +227,8 @@ handlers.ServerLogic()
 check("new cauldron found on the next tick", #windows, tostring(before + 1))
 check("rebuilt window still open", shown(), "true")
 check("new cauldron listed", lines(),
-      "Elder Overload Salve: 14 doses | Aggression Potion: 120 doses | Empty | "
-      .. "Elder Overload Salve: 1 dose | Unknown potion (4000): 50 doses")
+      "1. Elder Overload Salve: 14 doses | 2. Aggression Potion: 120 doses | 3. Empty | "
+      .. "4. Elder Overload Salve: 1 dose | 5. Unknown potion (4000): 50 doses")
 
 -- Nothing changed: no rebuild
 handlers.ServerLogic()
@@ -227,6 +242,58 @@ check("dragged position saved", tostring(saved.cauldron_x) .. "," .. tostring(sa
 cauldronVars[3].value = 0
 handlers.ServerLogic()
 check("rebuilt window opens where it was left", win().opts.x .. "," .. win().opts.y, "500,300")
+
+-- Number labels over the cauldrons: the visible text centred over a tile.
+local function labelAt(x)
+    for _, t in ipairs(texts) do
+        if t.posX == x - 20 and not t.hidden and t.isShadowed ~= nil then return t.content end
+    end
+    return "none"
+end
+
+handlers.WorldCreated({})
+handlers.LocAdded({ config = { id = 138359 } })        -- entering the house
+for i = 1, 6 do handlers.ServerLogic() end
+check("unmatched cauldrons show ?", labelAt(21 * 50) .. labelAt(22 * 50) .. labelAt(23 * 50), "???")
+
+-- Drink from the middle cauldron while standing in front of it: it's number 4
+playerTile = tile(22, 6)
+cauldronVars[4].value = (182 << 1) | 1 | (106 << 13)
+handlers.ServerLogic()
+check("middle learned as 4", labelAt(22 * 50), "4")
+check("others still ?", labelAt(21 * 50) .. labelAt(23 * 50), "??")
+check("match saved", saved.cauldron_map["0:22:7"], "4")
+
+-- Filling the left cauldron while standing in front of it: it's number 3
+cauldronVars[3].value = 1
+playerTile = tile(21, 6)
+handlers.ServerLogic()
+check("left learned as 3", labelAt(21 * 50), "3")
+
+-- Far from every cauldron: a change isn't credited to any of them
+playerTile = tile(10, 10)
+cauldronVars[5].value = (146 << 1) | 1 | (2 << 13)
+handlers.ServerLogic()
+check("far away: right still ?", labelAt(23 * 50), "?")
+
+-- Equally close to two cauldrons: not learned
+playerTile = { level = 0, x = 10000 + 22, z = 3600 + 6, localX = 22, localZ = 6 }
+houseLocs[138361] = { { coordGrid = tile(22, 5) } }    -- move Arcane opposite Bubbling
+handlers.ServerLogic()
+cauldronVars[5].value = (146 << 1) | 1 | (1 << 13)
+handlers.ServerLogic()
+check("tie: nothing learned", saved.cauldron_map["0:22:5"], "nil")
+houseLocs[138361] = { { coordGrid = tile(23, 7) } }
+
+-- Leaving hides the labels; the house loading again doesn't learn anything
+handlers.WorldCreated({})
+check("labels hidden after leaving", labelAt(22 * 50), "none")
+handlers.LocAdded({ config = { id = 138359 } })
+playerTile = tile(23, 6)
+cauldronVars[2].value = (146 << 1) | 1 | (99 << 13)    -- arrives as the house loads
+handlers.ServerLogic()
+check("no learning while loading", saved.cauldron_map["0:23:7"], "nil")
+check("matches kept between visits", labelAt(22 * 50) .. labelAt(21 * 50), "43")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()
