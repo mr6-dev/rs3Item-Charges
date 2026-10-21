@@ -980,7 +980,8 @@ end)
 -- "Super restore (2)" add together, but flasks are counted separately.
 
 local SUPPLY_LIVE_INVENTORIES = { "INV", "LORE_BOB" }
-local SUPPLIES_MAX_LINES = 15
+-- The window grows to fit up to this many lines, then scrolls.
+local SUPPLIES_MAX_VISIBLE_LINES = 15
 
 local savedBankDoses = loadSetting("supplies_bank_doses",
     function(v) return type(v) == "table" end, {})
@@ -1046,11 +1047,7 @@ local function supplyLines()
     end)
 
     local lines = {}
-    for i, potion in ipairs(list) do
-        if i > SUPPLIES_MAX_LINES then
-            lines[#lines + 1] = string.format("...and %d more", #list - SUPPLIES_MAX_LINES)
-            break
-        end
+    for _, potion in ipairs(list) do
         local restock = potion.doses <= restockAt and "  (restock)" or ""
         lines[#lines + 1] = string.format("%s: %d dose%s%s", potion.name, potion.doses,
             potion.doses == 1 and "" or "s", restock)
@@ -1062,14 +1059,16 @@ local function supplyLines()
 end
 
 -- Same approach as the cauldron window: sized to its lines, rebuilt when the
--- number of lines changes.
+-- number of lines changes. PrettyUI windows have a scroll bar, so long lists
+-- are capped at a sensible height and scrolled.
 local function buildSuppliesWindow(lineCount)
     if suppliesWindow ~= nil then
         pcall(function() suppliesWindow:Destroy() end)
     end
     suppliesWindow = prettyui.Window.new(parentLayer, {
         title = "Potion supplies",
-        x = 360, y = 200, width = 340, height = 44 + lineCount * 26,
+        x = 360, y = 200, width = 440,
+        height = 44 + math.min(lineCount, SUPPLIES_MAX_VISIBLE_LINES) * 26,
         onClose = function() suppliesWindowOpen = false end,
     })
     supplyRows = {}
