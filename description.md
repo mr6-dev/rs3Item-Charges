@@ -35,7 +35,7 @@ These match the numbers in the game's own Invention charge tooltip, so your perk
 When you enter your player-owned house, a small panel lists each potion cauldron you've built by number, the potion in it and the doses left (for example "3. Elder overload salve: 15 doses"). It updates as you drink or fill a cauldron, remembers where you last moved it, and you can close it or turn it off. Each cauldron in your house also shows its potion's icon above it (or its number, if you prefer), so you can tell which is which. The icons hide while you're outside the cauldron's building, so they don't show through walls. New cauldrons are numbered as you build them, and moved cauldrons keep their number. Cauldrons you already had when you install the plugin show "?" until you drink from or fill each one once.
 
 **Potion supplies**
-When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked in the restock colour. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank. Drag the list anywhere and it opens there from then on, even after logging out.
+When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked in the restock colour. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank. Drag the summary or the list anywhere and they open there from then on, even after logging out.
 
 ## Settings
 
@@ -80,4 +80,4 @@ This plugin uses the following information: the names and right-click options of
 
 This information is not transmitted outside of the plugin under any circumstances.
 
-Plugin settings are stored between sessions. The only game information stored between sessions is the total doses of each potion in your bank (for the potion supplies list), which cauldron number belongs to which spot in your house, and where you last moved the cauldron panel and the potion supplies list. These are kept on your computer by the game's plugin storage.
+Plugin settings are stored between sessions. The only game information stored between sessions is the total doses of each potion in your bank (for the potion supplies list), which cauldron number belongs to which spot in your house, and where you last moved the cauldron panel and the potion supplies windows. These are kept on your computer by the game's plugin storage.

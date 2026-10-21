@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **The potion supplies list remembers where you drag it**, even after logging out.
+- **The potion supplies summary and list remember where you drag them**, even after logging out.
 
 ## 1.3.3
 

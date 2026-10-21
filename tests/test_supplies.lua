@@ -181,6 +181,22 @@ handlers.ServerLogic()
 win().button()
 check("list reopens where it was dragged", tostring(listFromBank.shown) .. "," .. tostring(listFromBank.destroyed), "true,false")
 
+-- Dragging the summary too: the next time the bank opens, the summary opens
+-- where it was left instead of beside the bank
+local secondSummary
+for i = #windows, 1, -1 do if windows[i].button ~= nil then secondSummary = windows[i]; break end end
+handlers.ServerLogic()                      -- records where it first sat
+secondSummary.viewport.xyGlobal = { x = 1004, y = 80 }
+handlers.ServerLogic()
+check("dragged summary position saved", tostring(saved.summary_x) .. "," .. tostring(saved.summary_y), "1000,50")
+bankContainer.xyGlobal = { x = 0, y = 0 }
+bankContainer.width, bankContainer.height = 0, 0
+handlers.ServerLogic()
+bankContainer.xyGlobal = { x = 100, y = 300 }
+bankContainer.width, bankContainer.height = 400, 400
+handlers.ServerLogic()
+check("summary reopens where it was dragged", win().opts.x .. "," .. win().opts.y, "1000,50")
+
 -- Reloading the plugin destroys the window
 PluginShutdown()
 check("destroyed on shutdown", win().destroyed, "true")

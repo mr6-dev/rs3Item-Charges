@@ -1609,10 +1609,11 @@ Event.ServerLogic.Subscribe("itemChargesSuppliesPosition", function()
 end)
 
 -- The summary beside the bank: how many potions need restocking, and a
--- button that opens the full list underneath it.
-local summaryWindow = nil
-local summaryText = nil
+-- button that opens the full list underneath it. It opens beside the bank
+-- until the player drags it; then it always opens where it was left. It's a
+-- ListWindow only for that position saving; its contents are built here.
 local SUMMARY_W, SUMMARY_H = 260, 120
+local summary = ListWindow.new("Potion supplies", SUMMARY_W, 0, 0, nil, "summary")
 
 local function summaryLine()
     local _, _, restockCount = supplyLines()
@@ -1621,31 +1622,35 @@ local function summaryLine()
 end
 
 local function updateSummary()
-    if summaryText ~= nil then
-        summaryText.content = summaryLine()
+    if summary.text ~= nil then
+        summary.text.content = summaryLine()
     end
 end
 
 local function closeSummary()
-    if summaryWindow ~= nil then
-        pcall(function() summaryWindow:Destroy() end)
-    end
-    summaryWindow, summaryText = nil, nil
+    summary:destroy()
+    summary.open, summary.text = false, nil
 end
 
 local function showSummary(x, y)
     closeSummary()
-    summaryWindow = prettyui.Window.new(parentLayer, {
-        title = "Potion supplies", x = x, y = y, width = SUMMARY_W, height = SUMMARY_H,
+    if not summary.moved then summary.x, summary.y = x, y end
+    summary.window = prettyui.Window.new(parentLayer, {
+        title = summary.title, x = summary.x, y = summary.y, width = SUMMARY_W, height = SUMMARY_H,
     })
-    summaryText = summaryWindow:AddText(summaryLine())
-    summaryWindow:AddFancyButton("Show list", function()
-        local ok, err = pcall(showSuppliesWindow, x, y + SUMMARY_H + 10)
+    summary.offset = nil
+    summary.text = summary.window:AddText(summaryLine())
+    summary.window:AddFancyButton("Show list", function()
+        local ok, err = pcall(showSuppliesWindow, summary.x, summary.y + SUMMARY_H + 10)
         if not ok then print("Item Charges: supplies panel error: " .. tostring(err)) end
     end)
-    summaryWindow:Show()
+    summary.window:Show()
+    summary.open = true
 end
 
+Event.ServerLogic.Subscribe("itemChargesSummaryPosition", function()
+    pcall(summary.savePosition, summary)
+end)
 local function onSuppliesChanged()
     pcall(function()
         saveBankIfOpen()
