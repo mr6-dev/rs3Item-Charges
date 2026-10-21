@@ -38,7 +38,7 @@ local TRACKED_ITEMS = {
 -- with `pan VarPlayer` and confirmed in-game). Lowercase name -> variable.
 -- These have no low charge colour, since their counts are far above 1 to 5.
 local VAR_CHARGED_ITEMS = {
-    ["spring cleaner"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+    ["spring cleaner 9001"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
 }
 
 -- Potions are detected by their "Drink" option (see isPotion). These words
@@ -148,6 +148,9 @@ local RESTOCK_STEP = 10
 local restockAt = loadSetting("supplies_restock_at", function(v)
     return math.type(v) == "integer" and v >= 0 and v <= RESTOCK_MAX
 end, 50)
+
+local SUPPLIES_MODES = { bank = true, off = true }
+local suppliesMode = loadSetting("supplies_panel", function(v) return SUPPLIES_MODES[v] == true end, "bank")
 
 local INVENTION_LINES = {
     { value = "time",   key = "show_invention",        text = "Show time left" },
@@ -1107,7 +1110,7 @@ local function buildSuppliesWindow(lineCount)
     end
     suppliesWindow = prettyui.Window.new(parentLayer, {
         title = "Potion supplies",
-        x = 360, y = 200, width = 440,
+        x = 40, y = 200, width = 440,   -- left edge, clear of the bank window
         height = 44 + math.min(lineCount, SUPPLIES_MAX_VISIBLE_LINES) * 26,
         onClose = function() suppliesWindowOpen = false end,
     })
@@ -1148,6 +1151,34 @@ end
 Event.InventoryAdded.Subscribe("itemChargesSuppliesAdded", onSuppliesChanged)
 Event.InventoryUpdated.Subscribe("itemChargesSuppliesUpdated", onSuppliesChanged)
 Event.InventoryRemoved.Subscribe("itemChargesSuppliesRemoved", onSuppliesChanged)
+
+local function closeSuppliesWindow()
+    if suppliesWindow ~= nil and suppliesWindowOpen then
+        pcall(function() suppliesWindow:Close() end)
+    end
+    suppliesWindowOpen = false
+end
+
+-- Opening the bank pops the panel up, and closing the bank closes it again.
+-- The bank counts as open while its item area is on screen; checked once a
+-- game tick.
+local BANK_OPEN_COMPONENT = "BANK__BANK_ITEMS_CONTAINER"
+local bankWasOpen = false
+
+Event.ServerLogic.Subscribe("itemChargesSuppliesBank", function()
+    pcall(function()
+        local container = findComponentByName(BANK_OPEN_COMPONENT)
+        local bankOpen = container ~= nil and container.visibleGlobal == true
+        if suppliesMode == "bank" then
+            if bankOpen and not bankWasOpen then
+                showSuppliesWindow()
+            elseif bankWasOpen and not bankOpen then
+                closeSuppliesWindow()
+            end
+        end
+        bankWasOpen = bankOpen
+    end)
+end)
 
 -------------------------------------------------------------------------------
 -- Settings page (built with PrettyUI)
@@ -1315,7 +1346,21 @@ local function buildSettingsPage(parent)
     end
 
     settingsView:AddDivider()
-    settingsView:AddText("Potion supplies (backpack, beast of burden and bank):")
+    settingsView:AddText("Potion supplies panel (backpack, beast of burden and bank):")
+    if settingsView.AddRadioButton ~= nil then
+        settingsView:AddRadioButton({
+            { text = "When I open my bank", value = "bank" },
+            { text = "Off", value = "off" },
+        }, {
+            selectedValue = suppliesMode,
+            inline = true,
+            onChange = function(group, value)
+                if not SUPPLIES_MODES[value] then return end
+                suppliesMode = value
+                saveSetting("supplies_panel", suppliesMode)
+            end,
+        })
+    end
     if settingsView.AddSlider ~= nil then
         local label = settingsView:AddText(restockText())
         settingsView:AddSlider({

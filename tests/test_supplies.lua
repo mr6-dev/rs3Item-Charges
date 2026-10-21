@@ -26,10 +26,12 @@ local function comp(extra)
     return c
 end
 local pluginLayer = comp({ visibleGlobal = true })
+local bankContainer = comp()   -- visible while the bank window is open
 Vector4 = { new = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end }
 ui = {
     Interfaces = { GetComponent = function(_, name)
         if name == "TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP" then return pluginLayer end
+        if name == "BANK__BANK_ITEMS_CONTAINER" then return bankContainer end
         return comp()
     end },
     Text = { new = function() return comp() end },
@@ -132,6 +134,15 @@ backpack[2] = slot(item("Super restore (1)", { "Drink" }), 1)
 handlers.InventoryUpdated({})
 check("updates live", lines(),
       "Prayer potion: 3 doses  (restock) | Saradomin brew flask: 12 doses | Super restore: 45 doses")
+
+-- Opening the bank pops the panel up; closing the bank closes it
+win():Close()
+bankContainer.visibleGlobal = true
+handlers.ServerLogic()
+check("opens with the bank", win().shown, "true")
+bankContainer.visibleGlobal = false
+handlers.ServerLogic()
+check("closes with the bank", win().shown, "false")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()

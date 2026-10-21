@@ -11,7 +11,7 @@ backpack[2] = item("Ring of Wealth (2)", { "Wear" })   -- capital W, as on the w
 backpack[3] = item("Kethsi ring (1)", { "Wear" })
 backpack[4] = item("Super restore (2)", { "Drink" })
 backpack[5] = item("Ring of respawn (new)", { "Wear" })   -- no number: ignored
-backpack[6] = item("Spring cleaner", { "Operate" })      -- charges from a player variable
+backpack[6] = item("Spring cleaner 9001", { "Operate" })      -- charges from a player variable
 
 local bob = {}
 for i = 1, 32 do bob[i] = item("") end
