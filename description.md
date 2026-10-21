@@ -50,7 +50,7 @@ Only items that show their charges in their name are supported. Items that keep 
 
 ## Credits
 
-The settings page is built with PrettyUI by rsnJ3 (https://prettyui.j3.gg/), used with the author's permission. PrettyUI is a required dependency and is installed automatically.
+The settings page is built with PrettyUI by rsnJ3 (https://prettyui.j3.gg/). PrettyUI is a required dependency and is installed automatically.
 
 ## Email
 

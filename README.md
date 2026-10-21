@@ -72,4 +72,4 @@ a number.
 ## Credits
 
 The settings page is built with **PrettyUI** by rsnJ3
-(https://prettyui.j3.gg/), used with the author's permission.
+(https://prettyui.j3.gg/).

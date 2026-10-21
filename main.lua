@@ -9,7 +9,7 @@
 -- using one swaps it for "Games necklace (7)". Potions work the same way.
 --
 -- Credits: settings page built with PrettyUI by rsnJ3
--- (https://prettyui.j3.gg/), used with the author's permission.
+-- (https://prettyui.j3.gg/).
 
 print("Item Charges loaded.")
 
