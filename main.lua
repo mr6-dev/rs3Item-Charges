@@ -304,6 +304,8 @@ local function collectChargedItems()
                             kind = kind,
                             invName = invName,
                             slotIndex = slotIndex,
+                            baseName = baseName and string.lower(baseName),
+                            count = slot.count,
                         }
                         table.insert(results, item)
                         if slot.obj.id ~= nil then
@@ -646,12 +648,33 @@ local function shortNumber(n)
     return tostring(n)
 end
 
+-- Action bar potions show the total doses of that potion in the backpack,
+-- every dose size together ("Super restore (4)" and "(2)" make 6). This finds
+-- the potion's name without the dose for a bar item, or nil if it isn't a
+-- potion. The item may not be carried, so it's looked up if need be.
+local function barPotionName(objID)
+    local known = chargesByObjID[objID]
+    if known ~= nil then
+        return known.kind == "potion" and known.baseName or nil
+    end
+    local ok, base = pcall(function()
+        local obj = config.Obj.FromID(objID)
+        local name = parseCharges(obj.name)
+        return name and itemKind(obj, name) == "potion" and string.lower(name) or nil
+    end)
+    return ok and base or nil
+end
+
 local function renderChargeNumbers(items)
     -- Slot -> item for each inventory, for icons that don't report an item.
-    local itemsBySlot = {}
+    -- Also the backpack's total doses of each potion, for action bars.
+    local itemsBySlot, backpackDoses = {}, {}
     for _, item in ipairs(items) do
         itemsBySlot[item.invName] = itemsBySlot[item.invName] or {}
         itemsBySlot[item.invName][item.slotIndex] = item
+        if item.invName == "INV" and item.kind == "potion" then
+            backpackDoses[item.baseName] = (backpackDoses[item.baseName] or 0) + item.charges * (item.count or 1)
+        end
     end
 
     for layerIndex, entry in ipairs(ICON_LAYERS) do
@@ -691,7 +714,12 @@ local function renderChargeNumbers(items)
                 local item = nil
                 -- Action bar slots may report 0 for items you aren't carrying.
                 local checkQuantity = entry.bar == nil
-                if objID ~= nil then
+                local barPotion = entry.bar ~= nil and objID ~= nil and barPotionName(objID)
+                if barPotion then
+                    -- No number when none of that potion is in the backpack.
+                    local total = backpackDoses[barPotion]
+                    item = total and { charges = total, kind = "potion" }
+                elseif objID ~= nil then
                     if not checkQuantity or iconQuantity(icon) ~= 0 then
                         item = chargesByObjID[objID]
                     end

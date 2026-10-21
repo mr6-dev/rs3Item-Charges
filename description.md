@@ -18,7 +18,7 @@ Items that are running low show their number in a separate "low charge" colour. 
 - **Backpack and worn equipment**
 - **Bank**: numbers follow your items as you scroll, switch tabs or rearrange them. Placeholders don't get a number. While the bank is open, your backpack items show numbers in the bank's backpack panel.
 - **Beast of burden**: in your familiar's tab, the bank's familiar panel and the familiar storage window.
-- **Action bars**: potions and jewellery you've put on an action bar show the same number as in your backpack.
+- **Action bars**: a potion on an action bar shows the total doses of that potion in your backpack, all dose sizes added together. Jewellery shows the same number as in your backpack.
 
 Numbers move with their items straight away when you drag them to a new slot. While the bank is open, numbers that the bank window would cover are hidden so they don't show through it.
 

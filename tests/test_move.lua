@@ -173,4 +173,20 @@ handlers.Logic()
 check("no redraw on quiet ticks", lookups, "0")
 check("bar number still there", barNumbers(), "2@514")
 
+-- A second Super strength in the backpack, a different dose size: the bar
+-- shows the total doses of that potion in the backpack, 2 + 4 = 6
+ui.Interfaces.GetComponent = realGet
+backpack[3] = { obj = obj(2442, "Super strength (4)", { "Drink" }), count = 1 }
+icons[3].associatedObjectID, icons[3].associatedObjectQuantity = 2442, 1
+handlers.InventoryUpdated({})
+handlers.Logic()
+check("bar shows the backpack's total doses", barNumbers(), "6@514")
+
+-- A potion on the bar that isn't in the backpack: no number
+config.Obj = { FromID = function(id) if id == 9999 then return obj(9999, "Super attack (4)", { "Drink" }) end end }
+bar(5).associatedObjectID = 9999
+handlers.InventoryUpdated({})
+handlers.Logic()
+check("potion not carried: no bar number", barNumbers(), "6@514")
+
 print(string.format("\n%d passed, %d failed", pass, fail))

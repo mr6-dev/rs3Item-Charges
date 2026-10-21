@@ -46,8 +46,8 @@ colour. What counts as low is set separately for potions and jewellery (1 to 5).
   in the bank's backpack panel.
 - **Beast of burden**: the familiar tab, the bank's familiar panel and the
   familiar storage window.
-- **Action bars**: items on an action bar show the same number as in your
-  backpack.
+- **Action bars**: a potion shows the total doses of that potion in your
+  backpack (all dose sizes added together); jewellery shows its charges.
 
 Numbers move with their items straight away when you drag them.
 
