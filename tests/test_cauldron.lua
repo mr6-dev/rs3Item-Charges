@@ -81,7 +81,9 @@ prettyui = {
         function w:AddText(t) local r = { content = t }; self.rows[#self.rows + 1] = r; return r end
         function w:Show() self.shown = true end
         function w:Close() self.shown = false; if self.opts.onClose then self.opts.onClose(self) end end
-        function w:Destroy() self.destroyed = true end
+        -- The worst case: destroying also runs onClose
+        function w:Destroy() self.destroyed = true; if self.opts.onClose then self.opts.onClose(self) end end
+        w.viewport = { xyGlobal = { x = opts.x + 4, y = opts.y + 30 } }
         windows[#windows + 1] = w
         return w
     end },
@@ -201,6 +203,30 @@ check("off: stays closed", shown(), "false")
 -- The settings button opens it anyway
 view.buttons["Show cauldron panel now"]()
 check("show now button", shown(), "true")
+
+-- A cauldron built while the panel is open, with no VarTransmit: the next
+-- game tick picks it up, and the taller rebuilt window stays open
+local before = #windows
+cauldronVars[3].value = 1
+handlers.ServerLogic()
+check("new cauldron found on the next tick", #windows, tostring(before + 1))
+check("rebuilt window still open", shown(), "true")
+check("new cauldron listed", lines(),
+      "Elder Overload Salve: 14 doses | Aggression Potion: 120 doses | Empty | "
+      .. "Elder Overload Salve: 1 dose | Unknown potion (4000): 50 doses")
+
+-- Nothing changed: no rebuild
+handlers.ServerLogic()
+check("no rebuild without a change", #windows, tostring(before + 1))
+
+-- Dragging the window: its position is saved and used for the next window
+handlers.ServerLogic()   -- first tick after showing records the offset
+win().viewport.xyGlobal = { x = 504, y = 330 }
+handlers.ServerLogic()
+check("dragged position saved", tostring(saved.cauldron_x) .. "," .. tostring(saved.cauldron_y), "500,300")
+cauldronVars[3].value = 0
+handlers.ServerLogic()
+check("rebuilt window opens where it was left", win().opts.x .. "," .. win().opts.y, "500,300")
 
 -- Reloading the plugin destroys the window
 PluginShutdown()

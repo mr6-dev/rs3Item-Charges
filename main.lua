@@ -139,6 +139,12 @@ local showOnActionBars = loadSetting("show_on_action_bars", isBoolean, true)
 local CAULDRON_MODES = { house = true, off = true }
 local cauldronMode = loadSetting("cauldron_panel", function(v) return CAULDRON_MODES[v] == true end, "house")
 
+-- Where the cauldron window was last dragged to, so it reopens there after a
+-- logout.
+local function isCoord(v) return type(v) == "number" and v >= 0 end
+local cauldronX = loadSetting("cauldron_x", isCoord, 40)
+local cauldronY = loadSetting("cauldron_y", isCoord, 200)
+
 -- At or below these, numbers use the low colour. Separate for potions (doses)
 -- and jewellery (charges).
 local LOW_THRESHOLD_MAX = 5
@@ -913,6 +919,8 @@ local cauldronWindow = nil
 local cauldronRows = {}
 local cauldronWindowOpen = false
 local cauldronShownThisVisit = false
+local cauldronOffset = nil     -- viewport screen position minus the window's x, y
+local lastCauldronValues = nil -- raw cauldron variables at the last update
 local inLargeInstance = false
 local houseWallsSeen = 0
 
@@ -988,24 +996,56 @@ local function buildCauldronWindow(lineCount)
     end
     cauldronWindow = prettyui.Window.new(parentLayer, {
         title = "Potion cauldrons",
-        x = 40, y = 200, width = 300, height = 44 + lineCount * 26,
+        x = cauldronX, y = cauldronY, width = 300, height = 44 + lineCount * 26,
         onClose = function() cauldronWindowOpen = false end,
     })
+    cauldronOffset = nil
     cauldronRows = {}
     for i = 1, lineCount do
         cauldronRows[i] = cauldronWindow:AddText("")
     end
 end
 
+local function cauldronValuesKey()
+    local values = {}
+    for n = 1, CAULDRON_COUNT do
+        values[n] = tostring(readVarPlayer("CONSTRUCTION_HOUSE_FURNITURE_POTION_CAULDRON_" .. n))
+    end
+    return table.concat(values, ",")
+end
+
 local function updateCauldronWindow()
     if cauldronWindow == nil then return end
+    lastCauldronValues = cauldronValuesKey()
     local lines = cauldronLines()
     if #lines ~= #cauldronRows then
+        -- Destroying the old window may run its onClose, so remember whether
+        -- it was open first.
+        local wasOpen = cauldronWindowOpen
         buildCauldronWindow(#lines)
-        if cauldronWindowOpen then cauldronWindow:Show() end
+        cauldronWindowOpen = wasOpen
+        if wasOpen then cauldronWindow:Show() end
     end
     for i, line in ipairs(lines) do
         cauldronRows[i].content = line
+    end
+end
+
+-- PrettyUI can't report where a window has been dragged, so the position is
+-- worked out from the window's viewport component: its screen position now,
+-- minus how far it sat from the window's x, y when it was first shown.
+local function trackCauldronPosition()
+    local p = cauldronWindow.viewport.xyGlobal
+    if cauldronOffset == nil then
+        cauldronOffset = { x = p.x - cauldronX, y = p.y - cauldronY }
+        return
+    end
+    local x = math.max(0, math.floor(p.x - cauldronOffset.x))
+    local y = math.max(0, math.floor(p.y - cauldronOffset.y))
+    if x ~= cauldronX or y ~= cauldronY then
+        cauldronX, cauldronY = x, y
+        saveSetting("cauldron_x", x)
+        saveSetting("cauldron_y", y)
     end
 end
 
@@ -1068,6 +1108,19 @@ Event.VarTransmit.Subscribe("itemChargesCauldronVars", function(e)
                 updateCauldronWindow()
                 return
             end
+        end
+    end)
+end)
+
+-- Every game tick while the window is open: save its position if it was
+-- dragged, and catch cauldron changes that arrived without a VarTransmit
+-- (a newly built cauldron didn't show until the house was re-entered).
+Event.ServerLogic.Subscribe("itemChargesCauldronTick", function()
+    if cauldronWindow == nil or not cauldronWindowOpen then return end
+    pcall(trackCauldronPosition)
+    pcall(function()
+        if cauldronValuesKey() ~= lastCauldronValues then
+            updateCauldronWindow()
         end
     end)
 end)
