@@ -905,8 +905,15 @@ refresh()
 local ListWindow = { PADDING = 52, LINE_HEIGHT = 28 }
 ListWindow.__index = ListWindow
 
-function ListWindow.new(title, width, x, y, maxLines)
-    return setmetatable({ title = title, width = width, x = x, y = y,
+-- saveKey names the settings ("<saveKey>_x", "_y") that remember where the
+-- window was last dragged to, so it reopens there even after a logout.
+-- moved is true once it has a saved position.
+function ListWindow.new(title, width, x, y, maxLines, saveKey)
+    local savedX = loadSetting(saveKey .. "_x", isCoord, nil)
+    local savedY = loadSetting(saveKey .. "_y", isCoord, nil)
+    local moved = savedX ~= nil and savedY ~= nil
+    return setmetatable({ title = title, width = width,
+        x = moved and savedX or x, y = moved and savedY or y, saveKey = saveKey, moved = moved,
         maxLines = maxLines or math.huge, rows = {}, open = false }, ListWindow)
 end
 
@@ -982,6 +989,14 @@ function ListWindow:trackPosition()
     return true
 end
 
+-- Called every game tick while the window is open.
+function ListWindow:savePosition()
+    if self.window == nil or not self.open or not self:trackPosition() then return end
+    self.moved = true
+    saveSetting(self.saveKey .. "_x", self.x)
+    saveSetting(self.saveKey .. "_y", self.y)
+end
+
 -------------------------------------------------------------------------------
 -- Potion cauldrons (player-owned house)
 -------------------------------------------------------------------------------
@@ -1012,8 +1027,7 @@ local potionNames = nil    -- potion ID -> name, built on first use
 local potionItems = {}     -- potion ID -> item ID of its highest dose, for its icon
 -- Wide enough for "1. Elder overload salve: 107 doses  (refill)". Opens where
 -- it was last dragged to, even after a logout.
-local cauldronPanel = ListWindow.new("Potion cauldrons", 400,
-    loadSetting("cauldron_x", isCoord, 40), loadSetting("cauldron_y", isCoord, 200))
+local cauldronPanel = ListWindow.new("Potion cauldrons", 400, 40, 200, nil, "cauldron")
 local cauldronShownThisVisit = false
 local lastCauldronValues = nil -- raw cauldron variables at the last update
 local inHouse = false
@@ -1185,12 +1199,7 @@ end)
 -- built cauldron.
 Event.ServerLogic.Subscribe("itemChargesCauldronTick", function()
     if cauldronPanel.window == nil or not cauldronPanel.open then return end
-    pcall(function()
-        if cauldronPanel:trackPosition() then
-            saveSetting("cauldron_x", cauldronPanel.x)
-            saveSetting("cauldron_y", cauldronPanel.y)
-        end
-    end)
+    pcall(cauldronPanel.savePosition, cauldronPanel)
     pcall(function()
         if cauldronValuesKey() ~= lastCauldronValues then
             updateCauldronWindow()
@@ -1502,8 +1511,9 @@ local SUPPLY_LIVE_INVENTORIES = { "INV", "LORE_BOB" }
 local savedBankDoses = loadSetting("supplies_bank_doses",
     function(v) return type(v) == "table" end, {})
 -- Grows to fit up to 15 lines, then scrolls. Opens on the left of the screen
--- from the settings page, or under the summary beside the bank.
-local suppliesPanel = ListWindow.new("Potion supplies", 440, 40, 200, 15)
+-- from the settings page, or under the summary beside the bank, until the
+-- player drags it somewhere; then it always opens there.
+local suppliesPanel = ListWindow.new("Potion supplies", 440, 40, 200, 15, "supplies")
 
 -- Adds each potion's doses in one inventory to totals (a stack of 10
 -- "Super restore (4)" adds 40). Returns how many filled slots it saw, so an
@@ -1581,15 +1591,22 @@ local function supplyLines()
     return lines, lineColours, restockCount
 end
 
--- x and y are optional; the window is rebuilt if it should open elsewhere.
+-- x and y are optional, and ignored once the player has dragged the window;
+-- it's rebuilt if it should open elsewhere.
 local function showSuppliesWindow(x, y)
-    x, y = x or 40, y or 200
-    if x ~= suppliesPanel.x or y ~= suppliesPanel.y then
-        suppliesPanel:destroy()
-        suppliesPanel.x, suppliesPanel.y = x, y
+    if not suppliesPanel.moved then
+        x, y = x or 40, y or 200
+        if x ~= suppliesPanel.x or y ~= suppliesPanel.y then
+            suppliesPanel:destroy()
+            suppliesPanel.x, suppliesPanel.y = x, y
+        end
     end
     suppliesPanel:show(supplyLines())
 end
+
+Event.ServerLogic.Subscribe("itemChargesSuppliesPosition", function()
+    pcall(suppliesPanel.savePosition, suppliesPanel)
+end)
 
 -- The summary beside the bank: how many potions need restocking, and a
 -- button that opens the full list underneath it.
