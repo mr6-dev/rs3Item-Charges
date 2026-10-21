@@ -38,6 +38,12 @@ local TRACKED_ITEMS = {
 -- with `pan VarPlayer` and confirmed in-game). Lowercase name -> variable.
 -- These have no low charge colour, since their counts are far above 1 to 5.
 local VAR_CHARGED_ITEMS = {
+    -- Every upgrade tier shares the same count (you only ever own one).
+    ["spring cleaner"]      = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+    ["spring cleaner 2000"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+    ["spring cleaner 3000"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+    ["spring cleaner 5000"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+    ["spring cleaner 9000"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
     ["spring cleaner 9001"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
 }
 
