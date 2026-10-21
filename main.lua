@@ -1713,7 +1713,9 @@ local function buildSettingsPage(parent)
     })
 
     settingsView:AddDivider()
-    settingsView:AddText("Potion supplies panel (backpack, beast of burden and bank):")
+    -- Kept short: the radio buttons sit on the same row and get cut off.
+    settingsView:AddText("Potion supplies (counts your backpack, beast of burden and bank).")
+    settingsView:AddText("Potion supplies panel:")
     if settingsView.AddRadioButton ~= nil then
         settingsView:AddRadioButton({
             { text = "Beside my bank", value = "bank" },
