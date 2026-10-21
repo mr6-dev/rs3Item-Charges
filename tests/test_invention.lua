@@ -1,4 +1,4 @@
--- Offline test for the Invention charge time.  Run:  lua5.4 test_invention.lua
+-- Offline test for the Invention charge time.  Run:  lua5.4 tests/test_invention.lua  (from the main folder)
 -- Uses fake game values to check the maths, the formatting, the low colour,
 -- and that the label hides when the worn tab closes or the setting is off.
 

@@ -1,4 +1,4 @@
--- Offline test for moving items.  Run:  lua5.4 test_move.lua
+-- Offline test for moving items.  Run:  lua5.4 tests/test_move.lua  (from the main folder)
 -- The client redraws a moved item straight away, but the inventory data only
 -- changes when the server confirms. Checks numbers follow the icons at once.
 

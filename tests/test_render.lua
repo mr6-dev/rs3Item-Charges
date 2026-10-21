@@ -1,6 +1,6 @@
 -- Offline test: runs main.lua against a FAKE game API ("stubs").
 -- Checks which items get numbers, where the numbers land, and that they hide
--- when a window closes.  Run:  lua5.4 test_render.lua
+-- when a window closes.  Run:  lua5.4 tests/test_render.lua  (from the main folder)
 
 -- Fake items: name plus the right-click options the item has
 local function item(name, ops) return { name = name, interfaceOpNames = ops or {} } end

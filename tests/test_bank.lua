@@ -1,4 +1,4 @@
--- Offline test for bank numbers.  Run:  lua5.4 test_bank.lua
+-- Offline test for bank numbers.  Run:  lua5.4 tests/test_bank.lua  (from the main folder)
 -- Checks numbers land on the right bank icons, hide outside the bank's
 -- scroll area, show on the bank's backpack panel, and follow the setting.
 

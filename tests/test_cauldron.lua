@@ -1,4 +1,4 @@
--- Offline test for the potion cauldron panel.  Run:  lua5.4 test_cauldron.lua
+-- Offline test for the potion cauldron panel.  Run:  lua5.4 tests/test_cauldron.lua  (from the main folder)
 -- Uses the real values found in-game: cauldron 1 holds 15 doses of potion
 -- ID 182 (elder overload salve), cauldron 2 holds 120 of ID 146 (aggression).
 

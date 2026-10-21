@@ -1,6 +1,6 @@
 -- Offline tests for the name-parsing logic in main.lua.
 -- Runs with plain Lua on your computer (no game needed):
---     lua5.4 test_parse.lua
+--     lua5.4 tests/test_parse.lua  (from the main folder)
 --
 -- Why this exists: the parsing is pure logic (string in, values out), so it
 -- can be tested without launching RuneScape. Testing it here means that when

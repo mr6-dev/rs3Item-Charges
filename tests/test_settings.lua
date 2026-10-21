@@ -1,4 +1,4 @@
--- Offline test for the PrettyUI settings page.  Run:  lua5.4 test_settings.lua
+-- Offline test for the PrettyUI settings page.  Run:  lua5.4 tests/test_settings.lua  (from the main folder)
 -- Uses fake versions of the game API, PrettyUI and PersistentDB to check:
 --   1. each colour picker starts on the saved colour (as an RGBA hex number)
 --   2. accepting a colour in a picker recolours the right numbers and saves it

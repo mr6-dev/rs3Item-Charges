@@ -1,4 +1,4 @@
--- Offline test for 1.2.0 features.  Run:  lua5.4 test_features.lua
+-- Offline test for 1.2.0 features.  Run:  lua5.4 tests/test_features.lua  (from the main folder)
 -- New jewellery (any capitalisation), beast of burden, the low charge
 -- threshold slider, and separate Invention colours.
 
