@@ -4,6 +4,7 @@
 
 - **Potion icons over cauldrons.** Each cauldron in your house shows its potion's own icon above it, drawn by the game, so you can tell them apart at a glance. A setting switches back to showing the cauldron's number instead.
 - **Cauldrons number themselves.** A newly built cauldron gets its number the moment it's built, and a cauldron you move keeps its number. If only one cauldron is still unmatched, it's filled in automatically.
+- **Action bar potions show your backpack total.** A potion on an action bar shows the total doses of that potion in your backpack, all dose sizes added together.
 - **Hidden behind walls.** Icons hide while you're outside the cauldron's building, so they no longer show through walls.
 - **Fix:** removing a cauldron no longer leaves its label floating where it stood.
 
