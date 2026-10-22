@@ -1,11 +1,10 @@
 # Item Charges
 
-Shows how many charges or doses an item has left, as a small number on the
-item's icon in your backpack, worn equipment, bank, beast of burden and action
-bars. Also shows your Invention charge, and lists your house's potion
-cauldrons.
+A RuneScape 3 plugin that shows how many charges or doses an item has left, as
+a small number on the item's icon. It also shows your Invention charge, your
+house's potion cauldrons and a potion restock list.
 
-## What it tracks
+## What it shows
 
 - **Potions, flasks, brews and mixes**: every drinkable item with doses,
   including new ones added to the game later.
@@ -13,79 +12,79 @@ cauldrons.
   skills necklace, combat bracelet, Dig Site pendant, ring of slaying,
   ferocious ring, ring of wealth, Kethsi ring, Forinthry bracelet and Castle
   wars brace.
-- **Spring cleaner**: its stored charges, shortened to thousands (7,501
-  shows as "7K").
-
-- **Invention charge**: shown in the top-left corner of the worn equipment
-  tab: combat time left, current charge and drain rate (for example
-  "Time left 6h 38m", "Charge 167,795", "Drain 7.01/s"). These match the
-  game's own tooltip, so perks and research are already included. They turn
-  the low charge colour under 30 minutes, and hide when you aren't wearing
-  augmented gear.
+- **Spring cleaner**: its stored charges, shortened to thousands (7,501 shows
+  as "7K").
+- **Invention charge**: in the top-left corner of the worn equipment tab, the
+  combat time left, current charge and drain rate (for example "Time left
+  6h 38m"). These match the game's own tooltip. They change colour under 30
+  minutes and hide when you aren't wearing augmented gear.
+- **Potion cauldrons**: when you enter your house, a panel lists each potion
+  cauldron by number with its potion and doses, updating as you drink or fill
+  them. Each cauldron shows its potion's icon above it (or its number). New
+  cauldrons are numbered as you build them and moved ones keep their number;
+  cauldrons you already had show "?" until you use each one once. Icons hide
+  while you're outside the cauldron's building.
+- **Potion supplies**: a restock list of the total doses of each potion in
+  your backpack, beast of burden and bank (remembered from your last bank
+  visit), lowest first. When you open your bank, a small summary beside it
+  says how many potions need restocking, with a button for the full list.
 
 Items that are running low show their number in a separate "low charge"
-colour. What counts as low is set separately for potions and jewellery (1 to 5).
-
-- **Potion cauldrons**: when you enter your house, a panel lists each potion
-  cauldron by number, its potion and the doses left, updating as you drink
-  or fill them. Each cauldron in the house shows its potion's icon above it, or its number if you prefer. The
-  plugin learns which is which the first time you use each one (until then
-  it shows ?). The panel remembers where you last moved it.
-- **Potion supplies**: a restock list adding up the doses of each potion in
-  your backpack, beast of burden and bank (remembered from your last bank
-  visit), lowest first. Potions at or below your restock level are marked in the restock colour.
-  When you open your bank, a small summary beside it says how many potions
-  need restocking, with a button for the full list. It can also be opened
-  from the settings page.
+colour. The panels remember where you last moved them.
 
 ## Where numbers appear
 
 - **Backpack and worn equipment**
 - **Bank**: numbers follow items as you scroll, switch tabs or rearrange them.
-  Placeholders don't get a number. While banking, backpack items show numbers
-  in the bank's backpack panel.
+  Placeholders don't get a number.
 - **Beast of burden**: the familiar tab, the bank's familiar panel and the
   familiar storage window.
 - **Action bars**: a potion shows the total doses of that potion in your
-  backpack (all dose sizes added together); jewellery shows its charges.
-
-Numbers move with their items straight away when you drag them.
+  backpack, all dose sizes added together; jewellery shows its charges.
 
 ## Settings
 
-Open the settings with the cog icon next to Item Charges in the Plugin Hub's
-Manage tab.
+Open the settings with the cog next to Item Charges in the Plugin Hub's
+Manage tab. Changes apply straight away and are saved for next time.
 
-- **Charge number colour**: the colour of the numbers.
-- **Low charge colour**: the colour used when an item is at or below its low threshold.
-- **Outline the numbers**: adds an outline so numbers stand out on busy icons.
-- **Outline colour**: the colour of that outline.
-- **Show numbers in the bank** / **Show numbers on action bars**: turn these
-  off for a cleaner bank or action bar.
-- **Invention charge**: turn the time left, current charge and drain rate
-  lines on or off individually.
-- **Invention text size**: Normal, Small or XS, if the lines feel too big.
-- **Low charge thresholds**: separate sliders for potions and jewellery, 1 to 5.
-- **Invention text colour** / **Invention colour under 30 minutes**: separate
-  from the item number colours.
-- **Potion cauldron panel**: when you enter your house, or off. "Show cauldron
-  panel now" opens it anywhere.
-- **Cauldron refill level** / **Cauldron refill colour**: cauldrons at or below
-  this many doses (0 to 500, default 20) are marked "(refill)" in the panel,
-  and their line and number over the cauldron use the refill colour.
-- **Number over each cauldron**: the colour of the numbers over cauldrons that
-  don't need a refill, separate from the item number colours.
-
-Changes apply straight away and are saved for next time.
+- **Item numbers**: outline, show in the bank, show on action bars, low charge
+  thresholds for potions and jewellery (1 to 5), and the number, low and
+  outline colours.
+- **Invention charge**: which lines to show, text size (Normal, Small or XS)
+  and colours.
+- **Potion cauldrons**: show the panel when you enter your house or not, icon
+  or number over each cauldron, the refill level (default 20 doses) and the
+  number and refill colours.
+- **Potion supplies**: show the summary beside your bank or not, the restock
+  level (default 50 doses) and the restock colour.
+- Each section has a **Restore defaults** button.
 
 ## Limitations
 
-Some items store their charges in a way plugins can't currently read (for
-example, the ring of recoil, whose charges are tracked on your character, or
-the Botanist's amulet, which keeps a count on each amulet). These don't show
-a number.
+Items that keep their charges on the individual item, such as the ring of
+recoil, the Botanist's amulet or the "Item Charge" percentage on degrading
+gear, can't be read by plugins yet, so they don't show a number.
+
+## Repository layout
+
+- `plugin/`: the plugin itself. These are the only files that go in the
+  mod.io zip, all at the top level of the zip. `main.lua` lists what each
+  of the other files does.
+- `modio/`: the mod.io listing text (`description.md` and `summary.txt`).
+- `tests/`: offline tests that run the plugin against a fake game API.
+- `CHANGELOG.md`: what changed in each version.
+
+## Running the tests
+
+With Lua 5.4 installed, from this folder:
+
+```
+lua tests/test_cauldron.lua
+```
+
+Each test file prints its checks and a "passed, failed" total.
 
 ## Credits
 
-The settings page is built with **PrettyUI** by rsnJ3
+The settings page and panels are built with **PrettyUI** by rsnJ3
 (https://prettyui.j3.gg/).
