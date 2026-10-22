@@ -63,7 +63,7 @@ end }
 
 local realPrint = print
 print = function() end
-dofile("main.lua")
+dofile("tests/load_plugin.lua")
 print = realPrint
 
 -- Visible Invention lines (main texts only, top to bottom), joined with " | "

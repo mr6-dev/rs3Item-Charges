@@ -1,4 +1,4 @@
--- Offline tests for the name-parsing logic in main.lua.
+-- Offline tests for the name-parsing logic in item_numbers.lua.
 -- Runs with plain Lua on your computer (no game needed):
 --     lua5.4 tests/test_parse.lua  (from the main folder)
 --
@@ -6,7 +6,7 @@
 -- can be tested without launching RuneScape. Testing it here means that when
 -- something breaks in-game, you know the bug is in the game-facing parts.
 --
--- NOTE: this is a copy of parseCharges from main.lua. If you change one,
+-- NOTE: this is a copy of parseCharges from item_numbers.lua. If you change one,
 -- change the other.
 
 local function parseCharges(itemName)

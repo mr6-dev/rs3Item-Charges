@@ -93,7 +93,7 @@ end }
 local printed = {}
 local realPrint = print
 print = function(msg) printed[#printed + 1] = tostring(msg) end
-dofile("main.lua")
+dofile("tests/load_plugin.lua")
 print = realPrint
 
 local function rgb(v)

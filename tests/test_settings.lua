@@ -89,7 +89,7 @@ local function fresh()
 
     local realPrint = print
     print = function() end
-    dofile("main.lua")
+    dofile("tests/load_plugin.lua")
     print = realPrint
 
     -- Each slot's number: 8 outline copies, then the main text

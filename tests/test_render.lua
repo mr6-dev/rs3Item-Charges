@@ -1,4 +1,4 @@
--- Offline test: runs main.lua against a FAKE game API ("stubs").
+-- Offline test: runs the plugin against a FAKE game API ("stubs").
 -- Checks which items get numbers, where the numbers land, and that they hide
 -- when a window closes.  Run:  lua5.4 tests/test_render.lua  (from the main folder)
 
@@ -85,7 +85,7 @@ end }
 
 local realPrint = print
 print = function() end
-dofile("main.lua")
+dofile("tests/load_plugin.lua")
 print = realPrint
 
 -- Collect the visible MAIN numbers. Main texts are the ones that get

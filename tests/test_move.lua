@@ -96,7 +96,7 @@ end }
 
 local realPrint = print
 print = function() end
-dofile("main.lua")
+dofile("tests/load_plugin.lua")
 print = realPrint
 
 local function visible()
