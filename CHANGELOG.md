@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.4
+
+- **Cauldron doses over each cauldron.** A new setting shows each cauldron's doses above it: under the potion icon, or after the cauldron number. It's off by default.
+
 ## 1.3.3
 
 - **Potion icons over cauldrons.** Each cauldron in your house shows its potion's own icon above it, drawn by the game, so you can tell them apart at a glance. A setting switches back to showing the cauldron's number instead.
