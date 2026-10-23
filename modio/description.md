@@ -50,7 +50,7 @@ Open the settings with the cog icon next to Item Charges in the Plugin Hub's Man
 - **Invention text colour** and **Invention colour under 30 minutes**.
 - **Potion cauldron panel**: show it when you enter your house, or turn it off. "Show cauldron panel now" opens it anywhere.
 - **Cauldron refill level and colour**: cauldrons at or below this many doses (default 20) are marked "(refill)" in the panel, and their line and number use the refill colour. The numbers over cauldrons that don't need a refill have their own colour too.
-- **Over each cauldron**: the potion's icon, or the cauldron's number.
+- **Over each cauldron**: the potion's icon, or the cauldron's number, and optionally its doses.
 - **Potion supplies panel**: show it beside your bank, or turn it off. Set the restock level (0 to 500 doses) and the restock colour. "Show potion supplies" opens the list anywhere.
 - **Restore defaults**: each section has a button that puts its settings back to how they started.
 

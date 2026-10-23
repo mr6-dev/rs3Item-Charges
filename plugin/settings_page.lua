@@ -114,6 +114,8 @@ function restore.cauldrons()
     core.saveSetting("cauldron_refill_at", core.refillAt)
     cauldrons.LABEL.mode = "icon"
     core.saveSetting("cauldron_labels", cauldrons.LABEL.mode)
+    cauldrons.LABEL.showDoses = false
+    core.saveSetting("cauldron_show_doses", false)
     restore.colours({ "cauldron", "cauldron_low" })
 end
 
@@ -239,6 +241,14 @@ local function buildSettingsPage(parent)
         cauldrons.LABEL.mode = value
         core.saveSetting("cauldron_labels", value)
     end)
+    settingsView:AddCheckboxButton({
+        { text = "Show doses over each cauldron", value = "doses", selected = cauldrons.LABEL.showDoses },
+    }, {
+        onChange = function(group, values, changedValue, selected)
+            cauldrons.LABEL.showDoses = selected == true
+            core.saveSetting("cauldron_show_doses", cauldrons.LABEL.showDoses)
+        end,
+    })
     add.slider(function()
         return string.format("Mark cauldrons for refill at %d doses or fewer", core.refillAt)
     end, 0, core.REFILL_MAX, core.REFILL_STEP, core.refillAt, function(v)

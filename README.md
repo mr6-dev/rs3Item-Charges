@@ -53,7 +53,7 @@ Manage tab. Changes apply straight away and are saved for next time.
 - **Invention charge**: which lines to show, text size (Normal, Small or XS)
   and colours.
 - **Potion cauldrons**: show the panel when you enter your house or not, icon
-  or number over each cauldron, the refill level (default 20 doses) and the
+  or number over each cauldron, whether to show its doses too, the refill level (default 20 doses) and the
   number and refill colours.
 - **Potion supplies**: show the summary beside your bank or not, the restock
   level (default 50 doses) and the restock colour.

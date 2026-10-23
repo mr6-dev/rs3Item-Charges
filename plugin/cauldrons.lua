@@ -228,10 +228,12 @@ local LABEL_MODES = { icon = true, number = true }
 local LABEL = {
     RANGE_SQ = 5,              -- squared tiles: next to it, including diagonally
     HEIGHT = 700,              -- fine units above the tile (a tile is 512)
-    W = 40, H = 24,
+    W = 70, H = 24,            -- wide enough for "4: 105"
     ICON_W = 36, ICON_H = 32,  -- the size of an inventory icon
     LEARN_AFTER_TICKS = 5,     -- ignore the variables arriving as the house loads
     mode = core.loadSetting("cauldron_labels", function(v) return LABEL_MODES[v] == true end, "icon"),
+    -- Also show each cauldron's doses: under the icon, or after the number.
+    showDoses = core.loadSetting("cauldron_show_doses", core.isBoolean, false),
 }
 
 local function isMap(v) return type(v) == "table" end
@@ -375,6 +377,8 @@ local function placeCauldronLabels()
             if label.showIcon and label.icon ~= nil then
                 label.icon:SetPos(x - LABEL.ICON_W // 2, y - LABEL.ICON_H // 2)
                 label.icon.hidden = false
+                -- Any text (the doses) goes just under the icon.
+                y = y + (LABEL.ICON_H + LABEL.H) // 2
             elseif label.icon ~= nil then
                 label.icon.hidden = true
             end
@@ -482,7 +486,12 @@ local function cauldronLabelTick()
         label.behindWall = okRoof and behind
         local text = "?"
         if number ~= nil then
-            text = (label.showIcon and label.icon ~= nil) and "" or tostring(number)
+            local hasIcon = label.showIcon and label.icon ~= nil
+            if LABEL.showDoses and doses ~= nil then
+                text = hasIcon and tostring(doses) or (number .. ": " .. doses)
+            else
+                text = hasIcon and "" or tostring(number)
+            end
             -- Its number isn't built any more: the cauldron was removed, even
             -- if its scenery hasn't gone from the list yet.
             if raw == nil or raw & 1 == 0 then text = "" end

@@ -121,7 +121,7 @@ prettyui = {
         function v:AddDivider() end
         function v:AddSlider() end
         function v:AddColourPicker() end
-        function v:AddCheckboxButton() end
+        function v:AddCheckboxButton(choices, o) self.checkboxes = self.checkboxes or {}; self.checkboxes[#self.checkboxes + 1] = { choices = choices, opts = o } end
         function v:AddRadioButton(choices, o) self.radios[choices[1].value] = o end
         function v:AddFancyButton(text, action) self.buttons[text] = action end
         function v:Destroy() end
@@ -258,7 +258,7 @@ check("rebuilt window opens where it was left", win().opts.x .. "," .. win().opt
 -- Number labels over the cauldrons: the visible text centred over a tile.
 local function labelAt(x)
     for _, t in ipairs(texts) do
-        if t.posX == x - 20 and not t.hidden and t.isShadowed ~= nil then return t.content end
+        if t.posX == x - 35 and not t.hidden and t.isShadowed ~= nil then return t.content end
     end
     return "none"
 end
@@ -350,7 +350,7 @@ handlers.ServerLogic()
 -- number is red; cauldron 4 has 106 doses, so it stays yellow
 local function labelColourAt(x)
     for _, t in ipairs(texts) do
-        if t.posX == x - 20 and not t.hidden and t.isShadowed ~= nil then
+        if t.posX == x - 35 and not t.hidden and t.isShadowed ~= nil then
             return string.format("%.2f,%.2f,%.2f", t.colour.r, t.colour.g, t.colour.b)
         end
     end
@@ -381,6 +381,26 @@ prettyui.lastView.radios.icon.onChange(nil, "number")
 handlers.ServerLogic()
 check("icons hidden in number mode", iconAt(22 * 50), "none")
 check("number back", labelAt(22 * 50), "4")
+
+-- "Show doses over each cauldron": the number shows its doses too, "4: 106";
+-- with icons on, the doses go under the icon on their own
+prettyui.lastView = nil
+handlers.SettingsLayerReady({ component = { width = 640, height = 340 } })
+local dosesBox
+for _, b in ipairs(prettyui.lastView.checkboxes or {}) do
+    if b.choices[1].value == "doses" then dosesBox = b end
+end
+dosesBox.opts.onChange(nil, {}, "doses", true)
+check("doses setting saved", saved.cauldron_show_doses, "true")
+handlers.ServerLogic()
+check("number and doses", labelAt(22 * 50), "4: 106")
+prettyui.lastView.radios.icon.onChange(nil, "icon")
+handlers.ServerLogic()
+handlers.Logic()
+check("doses under the icon", labelAt(22 * 50), "106")
+prettyui.lastView.radios.icon.onChange(nil, "number")
+dosesBox.opts.onChange(nil, {}, "doses", false)
+handlers.ServerLogic()
 
 -- Walls: a roof piece one level up over the middle cauldron. While the roof
 -- is showing (player outside), its label hides; once the game removes the
