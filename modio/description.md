@@ -66,9 +66,15 @@ The settings page is built with PrettyUI by rsnJ3 (https://prettyui.j3.gg/). Pre
 
 The contact email address for this plugin is opwanderer10@gmail.com.
 
+## Feedback and collaboration
+
+Please report bugs and suggest features on the plugin's GitHub page: https://github.com/mr6-dev/rs3Item-Charges/issues, or by email at the address above.
+
+Anyone wishing to collaborate on this plugin is welcome to open an issue on GitHub or email first to discuss it. The full source code is on GitHub.
+
 ## EULA
 
-By submitting this Plugin (as defined in Schedule 4 of the EULA), I acknowledge that I agree to the terms of the Jagex End User License Agreement (EULA) found at https://legal.jagex.com/docs/terms/eula. These terms are incorporated by reference and are legally binding. If you do not agree to the terms of the EULA, you must not submit a Plugin or use the Plugin functionality, and Jagex does not license the software or grant the related rights to anyone who does not agree.
+This Plugin uses software licensed by Jagex to the developer under the terms of the Jagex End User Licence Agreement (EULA) found at https://legal.jagex.com/docs/terms/eula (and all terms incorporated into it by reference). The development and any use of the Plugin is at all times subject to the Jagex EULA.
 
 ## Permissions
 
