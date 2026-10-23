@@ -501,7 +501,14 @@ local function cauldronLabelTick()
     placeCauldronLabels()
 end
 
+-- Reloading the plugin inside the house: the entering events above don't
+-- fire again, so the first game tick looks for cauldrons already there.
+local checkedOnLoad = false
 Event.ServerLogic.Subscribe("itemChargesCauldronLabels", function()
+    if not checkedOnLoad then
+        checkedOnLoad = true
+        if next(findCauldronLocs()) ~= nil then enteredHouse() end
+    end
     if not inHouse or widgets.parentLayer == nil then return end
     pcall(cauldronLabelTick)
 end)

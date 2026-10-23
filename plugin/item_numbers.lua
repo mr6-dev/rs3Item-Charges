@@ -1,7 +1,7 @@
 -- Item Charges: item_numbers.lua
--- Finds charged items (jewellery, potions and the Spring cleaner) in your
--- inventories and draws their charges or doses on their icons, in the
--- backpack, worn equipment, bank, beast of burden and action bars.
+-- Finds charged items (jewellery, potions, the Spring cleaner, rings of
+-- retribution and the Camulet) in your inventories and draws their charges or doses on their
+-- icons, in the backpack, worn equipment, bank, beast of burden and action bars.
 
 local core = require("core")
 local widgets = require("widgets")
@@ -26,7 +26,7 @@ local TRACKED_ITEMS = {
 
 -- Items whose charges aren't in their name but in a player variable (found
 -- with `pan VarPlayer` and confirmed in-game). Lowercase name -> variable.
--- These have no low charge colour, since their counts are far above 1 to 5.
+-- These have no low charge colour, since most counts are far above 1 to 5.
 local VAR_CHARGED_ITEMS = {
     -- Every upgrade tier shares the same count (you only ever own one).
     ["spring cleaner"]      = "TRH53_SPRING_CLEANER_STORED_CHARGES",
@@ -35,6 +35,11 @@ local VAR_CHARGED_ITEMS = {
     ["spring cleaner 5000"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
     ["spring cleaner 9000"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
     ["spring cleaner 9001"] = "TRH53_SPRING_CLEANER_STORED_CHARGES",
+    -- Damage left to reflect. The plain and overcharged rings each have one
+    -- count for the whole account, so a new ring shows the current count.
+    ["ring of retribution"]     = "PLATINUM_RING_OF_RETRIBUTION_CHARGES",
+    ["ring of retribution (o)"] = "PLATINUM_RING_OF_RETRIBUTION_OVERCHARGED_CHARGES",
+    ["camulet"] = "ENAKH_CAMULET_CHARGE",   -- teleports left, 0 to 4
 }
 
 -- Potions are detected by their "Drink" option (see isPotion). These words

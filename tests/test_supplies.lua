@@ -64,7 +64,7 @@ prettyui = {
         local w = { opts = opts, rows = {}, shown = false, destroyed = false }
         w.viewport = { xyGlobal = { x = opts.x + 4, y = opts.y + 30 } }
         function w:AddText(t) local r = { content = t }; self.rows[#self.rows + 1] = r; return r end
-        function w:AddFancyButton(text, action) self.button = action end
+        function w:AddFancyButton(text, action) if text ~= "Filter bank" then self.button = action end end
         function w:Show() self.shown = true end
         function w:Close() self.shown = false; if self.opts.onClose then self.opts.onClose(self) end end
         function w:Destroy() self.destroyed = true end
@@ -158,13 +158,13 @@ check("list stays closed", list.shown, "false")
 
 -- Its button opens the list underneath it
 summary.button()
-check("list opens under the summary", win().shown and win().opts.x .. "," .. win().opts.y, "540,335")
+check("list opens under the summary", win().shown and win().opts.x .. "," .. win().opts.y, "540,405")
 -- Dragging the list somewhere: it's saved, and from then on the list opens
 -- there instead of under the summary (here, 300 right and 100 down)
 handlers.ServerLogic()                      -- records where it first sat
-win().viewport.xyGlobal = { x = 844, y = 465 }
+win().viewport.xyGlobal = { x = 844, y = 535 }
 handlers.ServerLogic()
-check("dragged list position saved", tostring(saved.supplies_x) .. "," .. tostring(saved.supplies_y), "840,435")
+check("dragged list position saved", tostring(saved.supplies_x) .. "," .. tostring(saved.supplies_y), "840,505")
 
 -- Closing the bank closes both. As in-game, a closed bank's item area still
 -- says visible, but with a size of 0 at (0, 0).

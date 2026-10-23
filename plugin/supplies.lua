@@ -6,6 +6,7 @@ local core = require("core")
 local widgets = require("widgets")
 local positioning = require("positioning")
 local numbers = require("item_numbers")
+local bankFilter = require("bank_filter")
 
 -- A restock list: the total doses of each potion across the backpack, beast
 -- of burden and bank, lowest first. The bank's contents are only sent while
@@ -61,7 +62,8 @@ local function saveBankIfOpen()
     end
 end
 
-local function supplyLines()
+-- Total doses of each potion (by name without the dose).
+local function potionTotals()
     local totals = {}
     for name, doses in pairs(savedBankDoses) do
         totals[name] = doses
@@ -69,6 +71,12 @@ local function supplyLines()
     for _, invName in ipairs(SUPPLY_LIVE_INVENTORIES) do
         addPotionDoses(invName, totals)
     end
+    return totals
+end
+
+-- Also returns the potion name on each line, for clicking a line.
+local function supplyLines()
+    local totals = potionTotals()
 
     local list = {}
     for name, doses in pairs(totals) do
@@ -80,7 +88,7 @@ local function supplyLines()
     end)
 
     -- Potions needing a restock get the restock colour.
-    local lines, lineColours = {}, {}
+    local lines, lineColours, names = {}, {}, {}
     local restockCount = 0
     for _, potion in ipairs(list) do
         local restock = ""
@@ -89,13 +97,56 @@ local function supplyLines()
             restockCount = restockCount + 1
             lineColours[#lines + 1] = core.toVector4(core.colours.restock)
         end
+        names[#lines + 1] = potion.name
         lines[#lines + 1] = string.format("%s: %d dose%s%s", potion.name, potion.doses,
             potion.doses == 1 and "" or "s", restock)
     end
     if #lines == 0 then
         lines[1] = "No potions found. Open your bank once to include it."
     end
-    return lines, lineColours, restockCount
+    return lines, lineColours, restockCount, names
+end
+
+-- Filtering the bank (see bank_filter.lua). The "Filter bank" button steps
+-- through these and then off; clicking a potion in the list shows just that
+-- potion. Restock uses the same totals and restock level as the list, and a
+-- potion you've run out of (only a placeholder left) counts as 0 doses.
+local BANK_FILTERS = {
+    { label = "all potions", show = function() return true end },
+    { label = "potions to restock", show = function(doses) return doses <= core.restockAt end },
+    { label = "stocked potions", show = function(doses) return doses > core.restockAt end },
+}
+local filterStep, filterPotion = 0, nil   -- 0 = off; or one potion's name
+local bankOpenNow = false
+local updateSummary   -- defined below
+
+local function applyBankFilter()
+    local totals, f = potionTotals(), BANK_FILTERS[filterStep]
+    if filterPotion ~= nil then
+        bankFilter.set(function(name) return name == filterPotion end)
+    elseif f ~= nil then
+        bankFilter.set(function(name) return f.show(totals[name] or 0) end)
+    else
+        bankFilter.set(nil)
+    end
+    updateSummary()
+end
+
+local function filterText()
+    if filterPotion ~= nil then return "Bank: " .. filterPotion .. " only" end
+    local f = BANK_FILTERS[filterStep]
+    return f and ("Bank: " .. f.label) or "Bank: not filtered"
+end
+
+-- Clicking a potion in the list filters the bank to it; clicking it again
+-- turns the filter off.
+suppliesPanel.onRowClick = function(line)
+    if not bankOpenNow then return end
+    local _, _, _, names = supplyLines()
+    if names[line] == nil then return end
+    filterStep = 0
+    filterPotion = filterPotion ~= names[line] and names[line] or nil
+    applyBankFilter()
 end
 
 -- x and y are optional, and ignored once the player has dragged the window;
@@ -119,7 +170,7 @@ end)
 -- button that opens the full list underneath it. It opens beside the bank
 -- until the player drags it; then it always opens where it was left. It's a
 -- ListWindow only for that position saving; its contents are built here.
-local SUMMARY_W, SUMMARY_H = 260, 120
+local SUMMARY_W, SUMMARY_H = 260, 190
 local summary = widgets.ListWindow.new("Potion supplies", SUMMARY_W, 0, 0, nil, "summary")
 
 local function summaryLine()
@@ -128,9 +179,10 @@ local function summaryLine()
     return string.format("%d potion%s to restock.", restockCount, restockCount == 1 and "" or "s")
 end
 
-local function updateSummary()
+updateSummary = function()
     if summary.text ~= nil then
         summary.text.content = summaryLine()
+        summary.filterText.content = filterText()
     end
 end
 
@@ -151,6 +203,11 @@ local function showSummary(x, y)
         local ok, err = pcall(showSuppliesWindow, summary.x, summary.y + SUMMARY_H + 10)
         if not ok then print("Item Charges: supplies panel error: " .. tostring(err)) end
     end)
+    summary.window:AddFancyButton("Filter bank", function()
+        filterStep, filterPotion = (filterStep + 1) % (#BANK_FILTERS + 1), nil
+        pcall(applyBankFilter)
+    end)
+    summary.filterText = summary.window:AddText(filterText())
     summary.window:Show()
     summary.open = true
 end
@@ -162,7 +219,8 @@ local function onSuppliesChanged()
     pcall(function()
         saveBankIfOpen()
         if suppliesPanel.open then suppliesPanel:setLines(supplyLines()) end
-        updateSummary()
+        -- Withdrawing changes what's in each slot, so filter again.
+        if bankFilter.active() then applyBankFilter() else updateSummary() end
     end)
 end
 Event.InventoryAdded.Subscribe("itemChargesSuppliesAdded", onSuppliesChanged)
@@ -200,12 +258,18 @@ Event.ServerLogic.Subscribe("itemChargesSuppliesBank", function()
                 suppliesPanel:close()
             end
         end
-        bankWasOpen = bankOpen
+        if bankWasOpen and not bankOpen then
+            bankFilter.bankClosed()
+            filterStep, filterPotion = 0, nil
+        end
+        bankWasOpen, bankOpenNow = bankOpen, bankOpen
+        bankFilter.tick()
     end)
 end)
 
 -- Called when the plugin is turned off or reloaded.
 local function shutdown()
+    bankFilter.set(nil)
     suppliesPanel:destroy()
     closeSummary()
 end

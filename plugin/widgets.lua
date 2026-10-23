@@ -202,6 +202,17 @@ function ListWindow:build(lineCount)
     self.rows, self.defaultColour, self.offset = {}, Vector4.new(1, 1, 1, 1), nil
     for i = 1, lineCount do
         self.rows[i] = self.window:AddText("")
+        -- Lines can be clicked when the window has onRowClick(line number).
+        if self.onRowClick ~= nil then
+            local row = self.rows[i]
+            pcall(function()
+                row.clickthrough = false
+                row:Subscribe(ui.Hook.ONCLICK, function()
+                    pcall(self.onRowClick, i)
+                    return true
+                end)
+            end)
+        end
     end
     pcall(function() self.defaultColour = self.rows[1].colour or self.defaultColour end)
 end

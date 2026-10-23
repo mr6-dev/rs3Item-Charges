@@ -11,6 +11,9 @@ Games necklace, amulet of glory, ring of duelling, skills necklace, combat brace
 **Spring cleaner**
 Every tier of the Spring cleaner shows its stored charges, shortened to thousands so it fits on the icon (7,501 shows as "7K").
 
+**Ring of retribution and Camulet**
+The plain and overcharged Ring of retribution show how much damage they have left to reflect, and the Camulet shows its teleports left (0 to 4).
+
 Items that are running low show their number in a separate "low charge" colour. You choose what counts as low, separately for potions and jewellery (1 to 5 doses or charges).
 
 ## Where numbers appear
@@ -36,6 +39,9 @@ When you enter your player-owned house, a small panel lists each potion cauldron
 
 **Potion supplies**
 When you open your bank, a small panel beside it tells you how many potions need restocking. Its "Show list" button opens the full list: the total doses of each potion across your backpack, beast of burden and bank, lowest first, with anything at or below your restock level marked in the restock colour. Your bank's potion totals are remembered from your last visit, so the list also works away from the bank. Drag the summary or the list anywhere and they open there from then on, even after logging out.
+
+**Filter your bank to potions**
+The summary's "Filter bank" button steps through showing all potions, potions to restock, stocked potions, then off, and a line under the buttons says which one is active. The matching potions are packed together at the top of your bank and everything else is hidden. They are the bank's own slots, so you withdraw as normal. Potions you've run out of (only a placeholder left) count as needing a restock. Click a potion in the supplies list to show just that potion, and click it again to show everything. The bank goes back to normal when you turn the filter off or close the bank, and its real layout is never changed.
 
 ## Settings
 
@@ -82,7 +88,7 @@ This plugin does not request any permissions.
 
 ## Data Protection (case 1)
 
-This plugin uses the following information: the names and right-click options of items in your backpack, worn equipment, bank and beast of burden, which items are shown on your action bars, the on-screen positions of those interfaces, your Invention charge and drain rate, your Spring cleaner's stored charges, the contents of your potion cauldrons, where the cauldrons stand in your house and your own position (to number them), whether the roof above a cauldron is showing (to hide its icon behind walls), and the scenery that loads when you change area (to recognise your house).
+This plugin uses the following information: the names and right-click options of items in your backpack, worn equipment, bank and beast of burden, which items are shown on your action bars, the on-screen positions of those interfaces, your Invention charge and drain rate, your Spring cleaner's stored charges, your Ring of retribution and Camulet charges, the contents of your potion cauldrons, where the cauldrons stand in your house and your own position (to number them), whether the roof above a cauldron is showing (to hide its icon behind walls), and the scenery that loads when you change area (to recognise your house).
 
 This information is not transmitted outside of the plugin under any circumstances.
 

@@ -21,6 +21,7 @@
 --   display.lua       when to rescan and redraw
 --   cauldrons.lua     potion cauldrons in your house
 --   supplies.lua      potion supplies (restock) list
+--   bank_filter.lua   filtering the bank to show only some potions
 --   settings_page.lua the settings page
 
 print("Item Charges loaded.")

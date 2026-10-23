@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.5
+
+- **Filter your bank to potions.** The potion supplies box beside the bank has a new "Filter bank" button. Each click steps through: all potions, potions to restock, stocked potions, then off. A line under the buttons shows which one is active. The matching potions are packed together at the top of your bank, and everything else (including the tab dividers) is hidden. These are the bank's own slots, so you withdraw as normal. Potions you've run out of (only a placeholder left) count as needing a restock.
+- **Click a potion in the supplies list** to show just that potion in your bank. Click it again to show everything.
+- The bank goes back to normal when you turn the filter off or close the bank. Your bank's real layout is never changed, only how it's shown.
+- **Ring of retribution charges** on its icon, for the plain and overcharged rings (damage left to reflect).
+- **Camulet charges** on its icon (teleports left, 0 to 4).
+- **Fix:** reloading the plugin while inside your house no longer hides the cauldron icons and panel until you leave and come back.
+
 ## 1.3.4
 
 - **Cauldron doses over each cauldron.** A new setting shows each cauldron's doses above it: under the potion icon, or after the cauldron number. It's off by default.

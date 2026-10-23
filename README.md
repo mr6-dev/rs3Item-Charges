@@ -12,6 +12,9 @@ house's potion cauldrons and a potion restock list.
   skills necklace, combat bracelet, Dig Site pendant, ring of slaying,
   ferocious ring, ring of wealth, Kethsi ring, Forinthry bracelet and Castle
   wars brace.
+- **Ring of retribution**: the damage it has left to reflect, for the plain
+  and overcharged rings.
+- **Camulet**: teleports left (0 to 4).
 - **Spring cleaner**: its stored charges, shortened to thousands (7,501 shows
   as "7K").
 - **Invention charge**: in the top-left corner of the worn equipment tab, the
@@ -28,6 +31,11 @@ house's potion cauldrons and a potion restock list.
   your backpack, beast of burden and bank (remembered from your last bank
   visit), lowest first. When you open your bank, a small summary beside it
   says how many potions need restocking, with a button for the full list.
+- **Bank filter**: the summary's "Filter bank" button steps through showing
+  only all potions, potions to restock or stocked potions, packed at the top
+  of your bank. Clicking a potion in the supplies list shows just that
+  potion. The bank goes back to normal when you turn the filter off or close
+  the bank.
 
 Items that are running low show their number in a separate "low charge"
 colour. The panels remember where you last moved them.
